@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "games": [
+    {
+      "id": "touge-drift",
+      "title": "Touge Drift",
+      "tagline": "Master the mountain.",
+      "genre": "Racing",
+      "tags": ["Drifting", "Career", "Offline"],
+      "featured": true,
+      "status": "available",
+      "version": "1.0",
+      "entry": "games/touge-drift/index.html",
+      "cover": "assets/covers/touge-drift.svg",
+      "accent": "#f2a53a",
+      "offline": true,
+      "players": "1 player",
+      "description": "A top-down mountain-pass racing and drifting game. Hold a slide through hairpins, chase drift scores, run the clock, and battle rivals down six roads that get steadily harder. Earn credits, buy and tune eight cars, and take on the Midnight Crown.",
+      "modes": [
+        { "name": "Career", "text": "Six regions, medals, credits and unlocks." },
+        { "name": "Drift Attack", "text": "Chain controlled drifts for points." },
+        { "name": "Time Attack", "text": "Beat the clock and your own ghost." },
+        { "name": "Rival Battle", "text": "Race AI drivers of different skill." }
+      ],
+      "controls": [
+        { "keys": "W / ↑", "action": "Accelerate" },
+        { "keys": "S / ↓", "action": "Brake / reverse" },
+        { "keys": "A D / ← →", "action": "Steer" },
+        { "keys": "Space", "action": "Handbrake" },
+        { "keys": "Shift", "action": "Clutch kick" },
+        { "keys": "R", "action": "Reset vehicle" },
+        { "keys": "C", "action": "Change camera" },
+        { "keys": "Esc", "action": "Pause" }
+      ],
+      "features": [
+        "Physics-based drifting: weight transfer, tyre slip and a friction circle, not scripted spins",
+        "Eight cars (RWD, FWD, AWD) with distinct handling",
+        "Engine, suspension, tyre, differential, weight and cosmetic tuning that changes how the car drives",
+        "Six hand-built mountain courses, deterministic scenery",
+        "AI rivals that follow the road, brake for corners and recover",
+        "Ghost replays of your best Time Attack run"
+      ],
+      "capabilities": ["reducedMotion", "startMuted"],
+      "storage": { "prefixes": ["td."], "note": "Credits, cars, upgrades, career progress, records and settings." }
+    },
+    {
+      "id": "claudeball",
+      "title": "Claude Ball",
+      "tagline": "Offline 8-ball pool for one or two players.",
+      "genre": "Sports · Pool",
+      "tags": ["8-ball", "Online", "Offline"],
+      "featured": false,
+      "status": "available",
+      "version": "1.0",
+      "entry": "games/claudeball/index.html",
+      "cover": "assets/covers/claudeball.svg",
+      "accent": "#3fbf8f",
+      "offline": true,
+      "players": "1–2 players (local or online)",
+      "description": "A complete 8-ball pool game in plain HTML5. Play the computer from Beginner to Demon, share the mouse with a friend, or host an encrypted online table. A 30-second shot clock keeps matches moving.",
+      "modes": [
+        { "name": "Single Player", "text": "Six computer difficulties." },
+        { "name": "Local Two Player", "text": "Two humans, one screen." },
+        { "name": "Online", "text": "Host or join a table with a 4-digit number." }
+      ],
+      "controls": [
+        { "keys": "Mouse / touch drag", "action": "Aim" },
+        { "keys": "← →", "action": "Fine-tune the aim (Shift = tiny steps)" },
+        { "keys": "Click the table", "action": "Lock the aim" },
+        { "keys": "Power slider", "action": "Drag, then release to shoot" },
+        { "keys": "M", "action": "Mute" },
+        { "keys": "Esc / Menu", "action": "Pause menu" }
+      ],
+      "features": [
+        "Simplified WPA 8-ball rules with ball in hand",
+        "Computer opponent with six skill levels",
+        "End-to-end encrypted online play",
+        "30-second shot clock",
+        "Phone-friendly: portrait and landscape, installable"
+      ],
+      "capabilities": [],
+      "storage": { "prefixes": ["cb-", "pool-"], "note": "Your name, tutorial progress and volume." }
+    }
+  ]
+}

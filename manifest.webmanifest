@@ -1,15 +1,15 @@
 {
-  "name": "Claude Ball",
-  "short_name": "Claude Ball",
-  "description": "Offline 8-ball pool for one or two players",
+  "name": "Arcade",
+  "short_name": "Arcade",
+  "description": "A personal arcade of offline browser games.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#070b12",
-  "theme_color": "#070b12",
+  "background_color": "#0a0b0e",
+  "theme_color": "#0a0b0e",
   "icons": [
-    { "src": "icons/icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    { "src": "assets/icons/arcade-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/arcade.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ]
 }

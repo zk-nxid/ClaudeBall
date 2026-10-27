@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+<defs>
+<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#05060d"/><stop offset=".55" stop-color="#1a1230"/><stop offset="1" stop-color="#5a2a3a"/></linearGradient>
+<radialGradient id="moon" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff3d6"/><stop offset=".25" stop-color="#ffe2a8" stop-opacity=".9"/><stop offset="1" stop-color="#ffb56b" stop-opacity="0"/></radialGradient>
+<linearGradient id="road" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2630"/><stop offset="1" stop-color="#0c0b10"/></linearGradient>
+<linearGradient id="trail" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff3b1f" stop-opacity="0"/><stop offset="1" stop-color="#ff7a3a"/></linearGradient>
+<radialGradient id="glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ff5a2a" stop-opacity=".9"/><stop offset="1" stop-color="#ff5a2a" stop-opacity="0"/></radialGradient>
+<filter id="blur"><feGaussianBlur stdDeviation="6"/></filter>
+</defs>
+<rect width="1600" height="900" fill="url(#sky)"/>
+<g fill="#fff" opacity=".8">
+<circle cx="140" cy="90" r="1.6"/><circle cx="330" cy="150" r="1.2"/><circle cx="520" cy="60" r="1.8"/><circle cx="760" cy="120" r="1.3"/><circle cx="980" cy="70" r="1.6"/><circle cx="1210" cy="140" r="1.2"/><circle cx="1460" cy="80" r="1.8"/><circle cx="60" cy="230" r="1.1"/><circle cx="1330" cy="250" r="1.1"/><circle cx="640" cy="230" r="1"/></g>
+<circle cx="1180" cy="230" r="230" fill="url(#moon)"/><circle cx="1180" cy="230" r="58" fill="#fff0cf"/>
+<path d="M0 560 L120 470 L240 530 L400 400 L560 520 L700 430 L860 540 L1040 410 L1200 520 L1360 430 L1500 500 L1600 450 L1600 900 L0 900Z" fill="#241a38"/>
+<path d="M0 640 L160 540 L300 610 L470 500 L640 620 L820 520 L980 630 L1160 530 L1330 620 L1480 560 L1600 600 L1600 900 L0 900Z" fill="#150f26"/>
+<path d="M0 760 L100 690 L250 740 L420 650 L600 740 L780 670 L960 750 L1140 680 L1320 750 L1480 700 L1600 730 L1600 900 L0 900Z" fill="#0a0716"/>
+<g fill="#050310"><path d="M0 900 L0 740 Q60 700 110 760 L150 700 L190 770 L240 690 L280 790 L330 720 L380 800 L420 900Z"/><path d="M1180 900 L1220 790 L1270 700 L1310 780 L1360 690 L1410 790 L1460 720 L1510 800 L1560 710 L1600 760 L1600 900Z"/></g>
+<path id="rd" d="M640 930 C 980 830, 1560 850, 1290 700 C 1060 575, 520 700, 640 540 C 720 440, 1010 470, 900 395" fill="none" stroke="#3a3144" stroke-width="92" stroke-linecap="round"/>
+<path d="M640 930 C 980 830, 1560 850, 1290 700 C 1060 575, 520 700, 640 540 C 720 440, 1010 470, 900 395" fill="none" stroke="#15121b" stroke-width="80" stroke-linecap="round"/>
+<path d="M640 930 C 980 830, 1560 850, 1290 700 C 1060 575, 520 700, 640 540 C 720 440, 1010 470, 900 395" fill="none" stroke="#8a7d96" stroke-width="3" stroke-dasharray="22 26" opacity=".75"/>
+<g filter="url(#blur)"><path d="M1180 770 C 1320 800, 1480 790, 1420 740" fill="none" stroke="#ff4422" stroke-width="12" stroke-linecap="round" opacity=".9"/><path d="M760 520 C 700 560, 680 560, 700 505" fill="none" stroke="#ff6a2a" stroke-width="9" stroke-linecap="round" opacity=".8"/></g>
+<path d="M980 826 C 1160 860, 1360 836, 1430 770" fill="none" stroke="url(#trail)" stroke-width="9" stroke-linecap="round"/>
+<path d="M960 846 C 1160 884, 1380 860, 1446 790" fill="none" stroke="url(#trail)" stroke-width="6" stroke-linecap="round" opacity=".7"/>
+<circle cx="1432" cy="772" r="62" fill="url(#glow)"/><circle cx="1448" cy="790" r="50" fill="url(#glow)"/>
+<g transform="translate(1440 780) rotate(-40) scale(1.5)"><rect x="-44" y="-17" width="88" height="34" rx="14" fill="#0b0b10"/><rect x="-18" y="-13" width="36" height="26" rx="8" fill="#1d1d28"/><rect x="-46" y="-12" width="6" height="8" rx="2" fill="#ff3b1f"/><rect x="-46" y="4" width="6" height="8" rx="2" fill="#ff3b1f"/><rect x="38" y="-13" width="7" height="6" rx="2" fill="#ffe9b0"/><rect x="38" y="7" width="7" height="6" rx="2" fill="#ffe9b0"/></g>
+<rect width="1600" height="900" fill="url(#sky)" opacity="0"/>
+</svg>
