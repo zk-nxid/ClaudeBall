@@ -50,10 +50,9 @@
       steer = clamp(steer, -1, 1);
       // --- stuck / facing the wrong way: put the car back on the road (costs the AI the time it lost) ---
       const rel = Math.cos(q.hd - car.th);
-      if ((car.speed < 1.5 && d.t0) || rel < 0.2) d.stuck += dt; else d.stuck = Math.max(0, d.stuck - dt * 2);
+      if ((car.speed < 1.5 && !slow) || rel < 0.2) d.stuck += dt; else d.stuck = Math.max(0, d.stuck - dt * 2);   // wedged against the rail, or facing backwards
       return { throttle: thr, brake: brk, steer, handbrake: false, kick: false, recover: d.stuck > 3.2 };
     };
-    d.t0 = false;
     return d;
   }
   TD.AI = { createDriver, speedProfile };

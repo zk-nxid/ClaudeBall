@@ -78,11 +78,12 @@
   const COURSE_IDS = () => TD.Tracks.COURSES.map(c => c.id);
   const BASE_REWARD = [1200, 1800, 2600, 3600, 4800, 6600];
   const MEDAL_MULT = [0, 1, 1.6, 2.4], MEDAL_NAMES = ['None', 'Bronze', 'Silver', 'Gold'];
-  const PRACTICE_RATE = 0.1, STARS_TO_UNLOCK = 5;
+  const PRACTICE_RATE = 0.1, STARS_TO_UNLOCK = 4;
   // par = time (s) a skill-0.85 AI needs in the stock starter car; medals are multiples of it (checked by the tests)
   const PAR = { 'pine-ridge': 89, 'moonlight-pass': 115, 'redline-canyon': 138, 'misty-summit': 158, 'blackpine-descent': 189, 'midnight-crown': 222 };
-  const TIME_MEDAL = [0, 1.45, 1.25, 1.08];                    // bronze / silver / gold = par x ...
-  const DRIFT_PER_KM = [0, 700, 1700, 3200];                   // drift points per km of race distance
+  const TIME_MEDAL = [0, 1.45, 1.2, 1.05];                    // bronze / silver / gold = par x ...
+  const DRIFT_MEDAL = [0, 0.35, 0.8, 1.5];                       // bronze / silver / gold = this x the course's drift par
+  const driftPar = id => { const t = Progress.track(id); return 220 * t.driftZones.length + 200 * t.raceLength / 1000; };   // ~220 points a zone (about one decent hairpin) + 200 a km elsewhere
   const RIVAL_NAMES = ['Kenji', 'Aoi', 'Takumi', 'Mika', 'Daichi', 'Rin', 'Sota', 'Yuna', 'Haruto', 'Ren', 'Kaede', 'Shin', 'Akari', 'Joe', 'Hana'];
   const RIVAL_COLORS = ['#c4231c', '#1c6fd1', '#2f9e5b', '#f0c230', '#6a3fb0', '#27d1c8', '#e65a9a', '#e8761d'];
   const RIVAL_CARS = [['sora-hatch', 'kazan-rz1'], ['hayate-rd', 'tsurugi-rs4'], ['tsurugi-rs4', 'orochi-tgt', 'kazan-rz1'], ['orochi-tgt', 'tsurugi-rs4', 'ryujin-drx'], ['ryujin-drx', 'raiden-gtawd', 'orochi-tgt'], ['raiden-gtawd', 'hakuba-zero', 'ryujin-drx']];
@@ -104,12 +105,10 @@
   const eventById = id => EVENTS().find(e => e.id === id);
 
   function thresholds(courseId, mode) {
-    const T = TD.Tracks.COURSES.find(c => c.id === courseId); const track = Progress._tr && Progress._tr[courseId];
     if (mode === 'time') { const par = PAR[courseId]; return TIME_MEDAL.map((m, k) => k ? Math.round(par * m * 10) / 10 : null); }
-    if (mode === 'drift') { const km = lengthKm(courseId); return DRIFT_PER_KM.map((m, k) => k ? Math.round(m * km / 50) * 50 : null); }
+    if (mode === 'drift') { const par = driftPar(courseId); return DRIFT_MEDAL.map((m, k) => k ? Math.round(par * m / 10) * 10 : null); }
     return null;
   }
-  const lengthKm = id => { const t = Progress.track(id); return t.raceLength / 1000; };
 
   /** Medal (0..3) for a finished run. Time: lower is better; drift: higher; rival: finishing place vs field. */
   function medalFor(mode, courseId, result) {

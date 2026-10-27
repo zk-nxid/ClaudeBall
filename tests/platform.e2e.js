@@ -117,6 +117,43 @@ const section = n => console.log('\n' + n);
     await ctx.close(); await srv.close();
   }
 
+  section('Hosted under a sub-path (like https://user.github.io/ClaudeBall/)');
+  {
+    const srv = await start(root, '/ClaudeBall/'); const { ctx, page } = await mk();
+    await page.goto(srv.url); await page.waitForSelector('.card');
+    ok('launcher works at /ClaudeBall/ with relative links only', (await page.locator('.card').count()) === 2 && page.errors.length === 0, page.errors);
+    await page.waitForFunction(async () => { const r = await navigator.serviceWorker.getRegistration(); return !!(r && r.active); }, null, { timeout: 15000 });
+    ok('service worker scope is the sub-path, not the domain root', await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).scope.endsWith('/ClaudeBall/')));
+    await page.click('.hero a.btn.solid'); await page.waitForURL(/\/ClaudeBall\/games\/touge-drift\//); await page.waitForSelector('.s-title');
+    ok('Touge Drift runs under the sub-path (all scripts resolved)', await page.evaluate(() => !!window.TD && !!TD.Game) && page.errors.length === 0, page.errors);
+    await page.click('#lib-link'); await page.waitForURL(/\/ClaudeBall\/(index\.html)?$/); ok('Back to Library returns inside the sub-path', page.url().includes('/ClaudeBall/'));
+    await page.goto(srv.url + 'games/claudeball/'); await page.waitForFunction(() => { const n = document.getElementById('menu-name'), m = document.getElementById('menu-main'); return (n && !n.hidden) || (m && !m.hidden); });
+    ok('Claude Ball runs under the sub-path via its folder URL', page.errors.length === 0, page.errors);
+    ok('nothing was requested outside /ClaudeBall/', page.reqs.every(u => u.startsWith(srv.url) || u.startsWith('data:')));
+    await ctx.close(); await srv.close();
+  }
+
+  section('Adding a third game (scaffold into a temporary copy of the repo)');
+  {
+    const os = require('os'), cpx = require('child_process'), tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'arcade-'));
+    const copy = (src, dst) => { fs.mkdirSync(dst, { recursive: true }); for (const f of fs.readdirSync(src)) { if (['.git', 'node_modules', 'tests'].includes(f)) continue; const s = path.join(src, f), d = path.join(dst, f); fs.statSync(s).isDirectory() ? copy(s, d) : fs.copyFileSync(s, d); } };
+    copy(root, tmp);
+    const r = cpx.spawnSync('node', [path.join(tmp, 'tools', 'new-game.js'), 'sample-game', 'Sample Game', 'Puzzle', 'Just a test.'], { encoding: 'utf8' });
+    ok('tools/new-game.js scaffolds a game, cover and registry entry', r.status === 0 && fs.existsSync(path.join(tmp, 'games', 'sample-game', 'index.html')) && fs.existsSync(path.join(tmp, 'assets', 'covers', 'sample-game.svg')), r.stderr);
+    ok('the offline file list was regenerated to include it', fs.readFileSync(path.join(tmp, 'sw-files.js'), 'utf8').includes('games/sample-game/index.html'));
+    const { ctx, page } = await mk();
+    await page.goto('file://' + tmp + '/index.html'); await page.waitForSelector('.card');
+    ok('the new game appears in the launcher library with no code changes to the launcher', (await page.locator('.card').count()) === 3 && (await page.textContent('.grid')).includes('Sample Game'));
+    await page.click('.card:has-text("Sample Game") a.btn'); await page.waitForURL(/sample-game/); await page.waitForSelector('#save');
+    await page.click('#save'); ok('the starter game runs and saves under its own prefix', await page.evaluate(() => localStorage.getItem('sample-game.save.v1') !== null));
+    ok('...and the shared Back to Library control is present', await page.isVisible('.arcade-back'));
+    await page.click('.arcade-back'); await page.waitForURL(/index\.html$/); ok('...and returns to the launcher by a relative path', await page.isVisible('.card'));
+    await page.goto('file://' + tmp + '/index.html#/settings'); await page.waitForSelector('.store');
+    ok('the new game\'s saves show up in Settings storage and are covered by export', (await page.textContent('.store')).includes('Sample Game'));
+    ok('no errors in the third game flow', page.errors.length === 0, page.errors); await ctx.close();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+
   await browser.close();
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);

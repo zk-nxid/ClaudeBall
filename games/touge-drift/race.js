@@ -16,7 +16,7 @@
     const grid = []; const list = (opts.rivals || []).concat([Object.assign({}, opts.player, { human: true })]);
     list.forEach((def, slot) => {
       const car = V.carById(def.carId), phys = V.toPhysics(car, def.build);
-      const pose = track.poseAt(track.startS - 5.5 - (list.length - 1 - slot) * 7.5, (slot % 2 ? 1 : -1) * 1.9);
+      const pose = track.poseAt(track.startS - 5.5 - slot * 7.5, (slot % 2 ? 1 : -1) * 1.9);
       const c = P().createCar(phys, pose.x, pose.y, pose.th);
       const q0 = track.query(pose.x, pose.y, -1);
       const rc = { def, name: def.name || (def.human ? 'You' : 'Rival'), human: !!def.human, color: def.color || V.paintOf(def.build), carId: def.carId, car, c, hint: q0.idx, s: q0.s, nextCp: 0, splits: [], finished: false, finishTime: null, penalty: 0, resets: 0, lastCp: -1,
@@ -62,7 +62,7 @@
       const q0 = track.query(c.x, c.y, rc.hint); rc.hint = q0.idx;
       if (rc.finished) { inp = rc.driver ? rc.driver.drive(c, q0, dt, true) : (rc.coast = rc.coast || TD.AI.createDriver(track, c.p, 0.7, 99)).drive(c, q0, dt, true); }
       else if (rc.human) inp = humanInput || rc.input; else inp = rc.driver.drive(c, q0, dt, false);
-      if (inp.recover) { const s0 = q0.s; resetPlayerTo(r, rc, s0 + 2); rc.recoveries++; rc.driver.stuck = 0; continue; }
+      if (inp.recover && !rc.human) { const s0 = q0.s; resetPlayerTo(r, rc, s0 + 2); rc.recoveries++; (rc.driver || rc.coast).stuck = 0; continue; }   // AI wedged or facing backwards: put it back on the road (a human uses R)
       const assist = rc.human && !rc.finished ? r.assist : 0;
       P().driverSteer(c, inp.steer || 0, rc.human ? assist : 0, dt);
       P().driverPedals(c, inp.throttle || 0, inp.brake || 0, dt, rc.human ? assist : 0);

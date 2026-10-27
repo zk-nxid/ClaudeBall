@@ -341,7 +341,7 @@
       g.fillStyle = '#d9d4c4'; g.font = font(mono, 12 * u); g.fillText('CP ' + h.cp + ' / ' + h.cpTotal, pad + 14 * u, pad + 104 * u);
       g.fillStyle = 'rgba(255,255,255,0.12)'; g.fillRect(pad + 84 * u, pad + 96 * u, 112 * u, 5 * u); g.fillStyle = amber; g.fillRect(pad + 84 * u, pad + 96 * u, 112 * u * clamp(h.progress, 0, 1), 5 * u);
       if (h.best != null) { g.fillStyle = '#9aa0ab'; g.font = font(mono, 11 * u); g.fillText('BEST ' + fmt(h.best), pad, pad + 132 * u); }
-      if (h.place) { g.fillStyle = 'rgba(8,9,12,0.62)'; rr(pad, pad + 140 * u, 92 * u, 44 * u, 10 * u); g.fill(); g.fillStyle = amber; g.font = font(sans, 30 * u); g.fillText(h.place + '/' + h.field, pad + 12 * u, pad + 172 * u); g.fillStyle = '#9aa0ab'; g.font = font(mono, 10 * u); g.fillText('POSITION', pad + 56 * u, pad + 160 * u); }
+      if (h.place) { g.fillStyle = 'rgba(8,9,12,0.62)'; rr(pad, pad + 140 * u, 150 * u, 44 * u, 10 * u); g.fill(); g.fillStyle = amber; g.font = font(sans, 30 * u); g.fillText(h.place + '/' + h.field, pad + 14 * u, pad + 172 * u); g.fillStyle = '#9aa0ab'; g.font = font(mono, 10 * u); g.fillText('POSITION', pad + 76 * u, pad + 167 * u); }
       // minimap
       if (R.mini) { const m = R.mini, S = 160 * u, mx = W - pad - S, my = pad; g.fillStyle = 'rgba(8,9,12,0.62)'; rr(mx, my, S, S, 14 * u); g.fill(); g.drawImage(m.c, mx + 4, my + 4, S - 8, S - 8); const k = (S - 8) / m.c.width;
         for (const d of h.dots) { g.fillStyle = d.me ? '#ffffff' : d.color; g.beginPath(); g.arc(mx + 4 + ((d.x - m.b.x0) * m.sc + m.ox) * k, my + 4 + ((d.y - m.b.y0) * m.sc + m.oy) * k, (d.me ? 4.2 : 3.2) * u, 0, TAU); g.fill(); if (d.me) { g.strokeStyle = amber; g.lineWidth = 1.5; g.stroke(); } } }

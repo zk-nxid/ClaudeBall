@@ -107,7 +107,8 @@
     return { throttle: thr, brake: brk, steer: st, handbrake: hb, kick };
   }
   function togglePause() {
-    if (app.screen !== 'race' || !app.race || app.race.state === 'finished') return;
+    if (!app.race || app.race.state === 'finished' || app.results) return;
+    if (!app.paused && app.screen !== 'race') return;                        // (a menu other than the pause menu is open)
     app.paused = !app.paused; if (app.paused) { Audio.silent(); UI.show('pause'); } else UI.show(null);
   }
 
@@ -227,8 +228,7 @@
   function init() {
     els.canvas = document.getElementById('view'); app.fx = TD.Render.createFx(); R = TD.Render.create(els.canvas);
     app.save = Save.load(); app.settings = Save.loadSettings();
-    const lp = launcherPrefs(); app.startMuted = !!lp.startMuted && !TD.Store.get(Save.SETTINGS_KEY);   // honour "start games muted" until the player sets their own audio choice
-    if (lp.startMuted && TD.Store.get(Save.SETTINGS_KEY) && app.settings.muted === false) app.startMuted = true;
+    const lp = launcherPrefs(); app.startMuted = !!lp.startMuted;                      // the Library's "start games muted": muted each launch until you press Sound
     app.reducedMotion = lp.motion === 'on' || (lp.motion !== 'off' && globalThis.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
     if (app.reducedMotion) { app.settings = Object.assign({}, app.settings, { shake: false }); }
     Audio.setVolume(app.settings.volume); Audio.setMuted(app.settings.muted || app.startMuted);

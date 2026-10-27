@@ -133,6 +133,9 @@ section('Drift scoring');
   ok('reversing scores nothing', rv.score === 0);
   let hit = D.create(); for (let i = 0; i < 120 * 3; i++) D.update(hit, mk(), true, false, 0, P.DT); const chainBefore = hit.chain; D.update(hit, mk(), true, false, 8, P.DT);
   ok('hitting a wall throws away the unbanked chain', chainBefore > 50 && hit.chain === 0 && hit.hits === 1);
+  let pen = D.create(); pen.score = 1000; D.update(pen, mk(), true, false, 12, P.DT);
+  ok('a crash costs at most a quarter of the banked score', pen.score >= 750 && pen.score < 1000, pen.score);
+  let pen2 = D.create(); pen2.score = 100; D.update(pen2, mk(), true, false, 12, P.DT); ok('...and a small score is not wiped out', pen2.score >= 75, pen2.score);
   let sw = D.create(); for (let i = 0; i < 120 * 4; i++) D.update(sw, { speed: 20, beta: (i % 240 < 120 ? 1 : -1) * 0.5, vx: 18, w: 1 }, true, false, 0, P.DT);
   ok('smooth direction changes build the combo (transitions)', sw.flips >= 1 && sw.combo > 1.8, [sw.flips, sw.combo]);
   // end to end: a real drifting run on the real physics

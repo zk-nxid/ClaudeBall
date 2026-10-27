@@ -194,7 +194,7 @@
       const nextEv = run.eventId ? Progress.EVENTS()[Progress.EVENTS().findIndex(e => e.id === run.eventId) + 1] : null;
       render('<div class="res"><div class="medal ' + MCLS[dnf ? 0 : out.medal] + '"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42"/><path d="M50 22l8 17 19 2-14 13 4 19-17-10-17 10 4-19-14-13 19-2z"/></svg></div><h2>' + mname + '</h2><p class="where">' + esc(c.name) + ' &middot; ' + MODES[run.mode][0] + (run.eventId ? ' &middot; Career' : ' &middot; Free Play') + '</p>' + main + tgt + extra +
         '<div class="reward">' + (out.reward ? '+' + num(out.reward) + ' CR' : 'No reward') + '<small>' + num(s.credits) + ' CR total</small></div><div class="actions"><button class="btn primary" data-act="again" data-focus>Retry</button>' +
-        (nextEv && out.medal ? '<button class="btn" data-act="nextev" data-id="' + nextEv.id + '">Next event</button>' : '') + '<button class="btn" data-act="garage-from">Garage</button><button class="btn" data-act="done">' + (run.eventId ? 'Back to events' : 'Menu') + '</button></div></div>', 'results');
+        (nextEv && out.medal && Progress.regionUnlocked(s, nextEv.region) ? '<button class="btn" data-act="nextev" data-id="' + nextEv.id + '">Next event</button>' : '') + '<button class="btn" data-act="garage-from">Garage</button><button class="btn" data-act="done">' + (run.eventId ? 'Back to events' : 'Menu') + '</button></div></div>', 'results');
     }
 
     /* ---------- actions ---------- */

@@ -3,11 +3,11 @@
  * direction of travel, computed from the physics state) between 11 and 77 degrees, on the road, moving forward.
  * Spinning in place, reversing and sliding on the grass score nothing. Points per second grow with angle (peak ~35 deg)
  * and speed; a combo multiplier builds while the drift lasts and jumps when you switch direction smoothly; drift zones
- * double the points. A drift is "banked" once you straighten out; hitting a wall throws away what you had not banked. */
+ * double the points. A drift is "banked" once you straighten out; hitting a wall throws away what you had not banked (and costs a little of what you had). */
 (function () {
   'use strict';
   const TD = (globalThis.TD = globalThis.TD || {});
-  const MIN_SPEED = 9, MIN_ANGLE = 0.2, MAX_ANGLE = 1.35, ENTRY_DELAY = 0.35, BANK_DELAY = 0.7;
+  const MIN_SPEED = 8, MIN_ANGLE = 0.2, MAX_ANGLE = 1.35, ENTRY_DELAY = 0.35, BANK_DELAY = 0.7;
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 
   function create() {
@@ -24,7 +24,7 @@
     const eligible = onRoad && car.speed >= MIN_SPEED && car.vx > 2 && ab >= MIN_ANGLE && ab <= MAX_ANGLE;
     if (impact > 2.5 && d.hitCd <= 0) {                                   // crash: lose the unbanked chain, small penalty
       if (d.chain > 0 || d.active) d.events.push({ type: 'lost', points: Math.round(d.chain) });
-      const pen = Math.min(d.score, 60 + Math.round(impact * 8)); d.score -= pen; if (pen) d.events.push({ type: 'penalty', points: pen });
+      const pen = Math.round(Math.min(d.score * 0.25, 40 + impact * 6)); d.score -= pen;           // a crash costs the live chain plus up to a quarter of banked points (never everything) if (pen) d.events.push({ type: 'penalty', points: pen });
       d.chain = 0; d.combo = 1; d.active = false; d.t = 0; d.gap = 0; d.hits++; d.hitCd = 1.0;
     }
     if (eligible) {
@@ -37,7 +37,7 @@
           d.sign = sgn; d.lastFlip = d.time;
         }
         const angF = ab < 0.61 ? ab / 0.61 : 1 - 0.4 * clamp((ab - 0.61) / 0.74, 0, 1);
-        const spdF = clamp((car.speed - 8) / 22, 0.2, 1.6);
+        const spdF = clamp((car.speed - 5) / 14, 0.25, 1.6);                  // ~1.0 at 19 m/s (68 km/h); hairpins are slow, fast sweepers pay more
         d.combo = Math.min(5, d.combo + 0.14 * dt);
         d.rate = 60 * angF * spdF * d.combo * (inZone ? 2 : 1);
         d.chain += d.rate * dt;
