@@ -25,7 +25,7 @@
   const START_CREDITS = 3000;
   const defaultSave = () => ({ v: 1, credits: START_CREDITS, owned: { 'kazan-rz1': V().defaultBuild() }, selected: 'kazan-rz1',
     career: { events: {} }, records: {}, stats: { runs: 0, finishes: 0, wins: 0, driftPoints: 0, bestDriftChain: 0, metres: 0, creditsEarned: 0 }, created: Date.now() });
-  const defaultSettings = () => ({ v: 1, volume: 0.7, muted: false, assist: 2, camera: 0, zoom: 1, units: 'kmh', shake: true, particles: 'high', rotation: true });
+  const defaultSettings = () => ({ v: 1, volume: 0.7, muted: false, assist: 2, camera: 0, zoom: 1.25, units: 'kmh', shake: true, particles: 'high', rotation: true });
 
   function sanitizeBuild(b) {
     const d = V().defaultBuild(); b = b && typeof b === 'object' ? b : {};
