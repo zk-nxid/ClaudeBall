@@ -11,13 +11,14 @@
    *          assist: 0..1, ghost: { data:[x,y,th,...] } | null } */
   function create(opts) {
     const track = opts.track, V = TD.Vehicles;
-    const r = { track, mode: opts.mode || 'time', assist: opts.assist == null ? 0.55 : opts.assist, state: 'countdown', clock: -COUNTDOWN, t: 0, racers: [], done: false, doneAt: 0,
+    const r = { track, mode: opts.mode || 'time', assist: opts.assist, drive: opts.drive || 'standard',   // assist undefined = the Driving Assist profile's own level
+                 state: 'countdown', clock: -COUNTDOWN, t: 0, racers: [], done: false, doneAt: 0,
                 ghost: opts.ghost || null, rec: [], recAcc: 0, events: [], steps: 0 };
     const grid = []; const list = (opts.rivals || []).concat([Object.assign({}, opts.player, { human: true })]);
     list.forEach((def, slot) => {
       const car = V.carById(def.carId), phys = V.toPhysics(car, def.build);
       const pose = track.poseAt(track.startS - 5.5 - slot * 7.5, (slot % 2 ? 1 : -1) * 1.9);
-      const c = P().createCar(phys, pose.x, pose.y, pose.th);
+      const c = P().createCar(phys, pose.x, pose.y, pose.th, def.human ? r.drive : 'standard');   // rivals always drive the Standard car model
       const q0 = track.query(pose.x, pose.y, -1);
       const rc = { def, name: def.name || (def.human ? 'You' : 'Rival'), human: !!def.human, color: def.color || V.paintOf(def.build), carId: def.carId, car, c, hint: q0.idx, s: q0.s, nextCp: 0, splits: [], finished: false, finishTime: null, penalty: 0, resets: 0, lastCp: -1,
                    input: { throttle: 0, brake: 0, steer: 0, handbrake: false, kick: false }, driver: null, drift: def.human ? TD.Drift.create() : null, place: 0, wrong: false, recoveries: 0, offRoad: 0, hits: 0, topSpeed: 0 };
@@ -26,6 +27,15 @@
     });
     r.player = r.racers[r.racers.length - 1];
     return r;
+  }
+
+  /** Light road-keeping help (Beginner / a little in Standard): when the car is heading toward a rail, add a gentle steer back toward the
+   *  road. It grows near the rail, never fights a driver who is already steering away, and is capped, so it cannot drive the car. */
+  function edgeNudge(c, q) {
+    const out = q.offset >= 0 ? 1 : -1, psi = P().wrap(c.th + c.beta - q.hd);
+    if (psi * out <= 0) return 0;
+    const e0 = q.edge * 0.55, e = clamp((Math.abs(q.offset) - e0) / Math.max(1, q.rail - e0), 0, 1);
+    return -out * e * c.prof.edge * clamp(Math.abs(psi) / 0.3, 0, 1) * 1.6;
   }
 
   function resetPlayerTo(r, rc, sv) {
@@ -64,7 +74,9 @@
       else if (rc.human) inp = humanInput || rc.input; else inp = rc.driver.drive(c, q0, dt, false);
       if (inp.recover && !rc.human) { const s0 = q0.s; resetPlayerTo(r, rc, s0 + 2); rc.recoveries++; (rc.driver || rc.coast).stuck = 0; continue; }   // AI wedged or facing backwards: put it back on the road (a human uses R)
       const assist = rc.human && !rc.finished ? r.assist : 0;
-      P().driverSteer(c, inp.steer || 0, rc.human ? assist : 0, dt);
+      let steerIn = inp.steer || 0;
+      if (rc.human && !rc.finished && c.prof.edge > 0 && c.speed > 6) steerIn = clamp(steerIn + edgeNudge(c, q0), -1, 1);
+      P().driverSteer(c, steerIn, assist, dt);
       P().driverPedals(c, inp.throttle || 0, inp.brake || 0, dt, rc.human ? assist : 0);
       // 2. physics
       P().step(c, { throttle: c.thr, brake: c.brk, steer: c.steer, handbrake: !!inp.handbrake, kick: !!inp.kick }, q0.surf);

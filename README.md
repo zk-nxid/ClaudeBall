@@ -125,10 +125,19 @@ Controls: **W / Up** accelerate, **S / Down** brake and reverse, **A D / Left Ri
 * **Physics** (`physics.js`): fixed 120 Hz step; a bicycle model in the car's body frame with weight transfer,
   per-axle tyre slip curves that peak then fall to sliding grip, a shared friction circle for drive / brake / cornering,
   RWD / FWD / AWD drive split, differential coupling, handbrake, clutch kick, wall impulses. Drifts are not scripted:
-  they appear when rear grip is exceeded. A driver-side assist (Off / Low / Medium / High) countersteers and eases
-  the throttle while sliding, because binary keyboard steering cannot hold a slide on its own.
-* **Courses** (`tracks.js`): six deterministic mountain roads built from smooth curvature profiles, with hairpins,
-  checkpoints, drift zones, guardrails and generated scenery. The generator refuses any layout in which the road comes
+  they appear when rear grip is exceeded. A **Driving assist** setting (see below)
+  controls how much the game helps hold a slide, because binary keyboard steering cannot do it unaided.
+* **Driving assist** (Settings, pre-race and pause menus): **Beginner** (default for new players: speed-sensitive
+  steering, strong countersteer help, a forgiving handbrake with a gentle fade, soft yaw limit, throttle eased while
+  sliding, light road-keeping nudge), **Standard** (balanced; the previous "Medium" feel) and **Expert** (almost no help:
+  quick steering, snappy handbrake, the car can spin). Players with an older save keep an equivalent mode
+  (old assist 3 -> Beginner, 2 -> Standard, 0-1 -> Expert); existing players with a save but no stored setting get Standard.
+  Rivals always drive with Standard physics. You still have to steer, brake and use throttle: the assist shapes
+  the response, it does not drive.
+* **Courses** (`tracks.js`): six deterministic mountain roads built from smooth curvature profiles (roads are about 40%
+  wider than the first version, 10.6-13 m, and the outside of every bend flares up to 3.4 m wider), with hairpins,
+  checkpoints, drift zones, guardrails and generated scenery. One set of per-sample edge arrays (`hl hr railL railR`)
+  feeds rendering, collision, scenery placement, gates and AI lane limits, so they cannot disagree. The generator refuses any layout in which the road comes
   close to itself, so every course is finishable.
 * **Modes:** Career (6 regions x 4 events, medals, unlocks), Drift Attack, Time Attack (checkpoint-validated, with a
   ghost of your best), Rival Battle (AI drivers on the same physics; the finishing order is simulated, not scripted).
@@ -140,7 +149,7 @@ Controls: **W / Up** accelerate, **S / Down** brake and reverse, **A D / Left Ri
 ## Tests
 
 ```
-node tests/touge-drift.unit.js     # 158 headless checks: physics, tracks, scoring, AI, race rules, progression, saves
+node tests/touge-drift.unit.js     # 216 headless checks: physics, tracks, scoring, AI, race rules, progression, saves
 node tests/platform.e2e.js         # launcher, registry, navigation, settings, hosted + sub-path + offline, adding a game
 node tests/claudeball.smoke.e2e.js # Claude Ball at its new location: starts, plays, saves, pauses, goes back to the Library
 node tests/touge-drift.e2e.js      # the game in a real browser: keyboard, menus, whole races, garage, saves

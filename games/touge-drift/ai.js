@@ -38,7 +38,7 @@
       const Ld = clamp(5 + 0.55 * speed, 6.5, 32), sT = q.s + Ld;
       // aim a little toward the inside of the bend (a bit of line shaping, capped well inside the road)
       const kk = track.kappa[clamp(Math.round(sT / track.ds), 0, n - 1)];
-      const lane = clamp(kk * 55, -2.2, 2.2) * 0.8;
+      const eg = track.edgeAt(sT), lane = clamp(kk * 90, -(eg.hl - 2.4) * 0.55, (eg.hr - 2.4) * 0.55);      // sit toward the inside of the bend, well clear of the edges
       const tgt = track.poseAt(sT, lane);
       const ca = Math.cos(car.th), sa = Math.sin(car.th), dx = tgt.x - car.x, dy = tgt.y - car.y;
       let alpha = Math.atan2(-sa * dx + ca * dy, ca * dx + sa * dy);                // angle to target in the car frame (+ = right)

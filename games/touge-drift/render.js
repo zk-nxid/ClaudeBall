@@ -163,22 +163,24 @@
 
     const CH = 40;
     function buildChunks(T) {
-      const out = [], half = T.half, sh = T.railOffset, look = T.look;
+      const out = [], HL = T.hl, HR = T.hr, RL = T.railL, RR = T.railR;
       for (let a = 0; a < T.n - 1; a += CH) {
         const b = Math.min(T.n - 1, a + CH), c = { a, b, road: new Path2D(), shoulder: new Path2D(), edgeL: new Path2D(), edgeR: new Path2D(), center: new Path2D(), rails: new Path2D(), posts: new Path2D(), cliff: new Path2D(), zone: new Path2D(), signs: new Path2D(), refl: new Path2D(), x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 };
-        const side = (path, o0, o1) => { for (let i = a; i <= b; i++) { const x = T.px[i] + T.nx[i] * o1, y = T.py[i] + T.ny[i] * o1; if (i === a) path.moveTo(x, y); else path.lineTo(x, y); } for (let i = b; i >= a; i--) path.lineTo(T.px[i] + T.nx[i] * o0, T.py[i] + T.ny[i] * o0); path.closePath(); };
-        const line = (path, o) => { for (let i = a; i <= b; i++) { const x = T.px[i] + T.nx[i] * o, y = T.py[i] + T.ny[i] * o; if (i === a) path.moveTo(x, y); else path.lineTo(x, y); } };
-        side(c.shoulder, -sh - 0.1, sh + 0.1); side(c.road, -half, half);
-        line(c.edgeL, -half + 0.4); line(c.edgeR, half - 0.4); line(c.center, 0); line(c.rails, -sh); c.rails.moveTo(T.px[a] + T.nx[a] * sh, T.py[a] + T.ny[a] * sh); line(c.rails, sh);
-        side(c.cliff, sh + 0.2, sh + 7); side(c.cliff, -sh - 7, -sh - 0.2);
-        for (let i = a; i <= b; i += 2) for (const sd of [-1, 1]) { const o = sd * sh, x = T.px[i] + T.nx[i] * o, y = T.py[i] + T.ny[i] * o; c.posts.rect(x - 0.16, y - 0.16, 0.32, 0.32); }
-        for (let i = a; i <= b; i += 10) for (const sd of [-1, 1]) { const o = sd * (sh + 0.1), x = T.px[i] + T.nx[i] * o, y = T.py[i] + T.ny[i] * o; c.refl.rect(x - 0.12, y - 0.12, 0.24, 0.24); }
-        // drift zones: amber bands along the inner edges
+        const pt = (i, o) => [T.px[i] + T.nx[i] * o, T.py[i] + T.ny[i] * o];
+        // f(i) gives the offset (m from the centre line, + = right) at sample i: every edge below uses the SAME per-sample widths the collision uses
+        const strip = (path, f0, f1) => { for (let i = a; i <= b; i++) { const p = pt(i, f1(i)); if (i === a) path.moveTo(p[0], p[1]); else path.lineTo(p[0], p[1]); } for (let i = b; i >= a; i--) { const p = pt(i, f0(i)); path.lineTo(p[0], p[1]); } path.closePath(); };
+        const line = (path, f, move) => { for (let i = a; i <= b; i++) { const p = pt(i, f(i)); if (i === a || move && i === a) path.moveTo(p[0], p[1]); else path.lineTo(p[0], p[1]); } };
+        strip(c.shoulder, i => -RL[i] - 0.1, i => RR[i] + 0.1); strip(c.road, i => -HL[i], i => HR[i]);
+        line(c.edgeL, i => -HL[i] + 0.4); line(c.edgeR, i => HR[i] - 0.4); line(c.center, () => 0); line(c.rails, i => -RL[i]); line(c.rails, i => RR[i]);
+        strip(c.cliff, i => RR[i] + 0.2, i => RR[i] + 7); strip(c.cliff, i => -RL[i] - 7, i => -RL[i] - 0.2);
+        for (let i = a; i <= b; i += 2) for (const o of [-RL[i], RR[i]]) { const p = pt(i, o); c.posts.rect(p[0] - 0.16, p[1] - 0.16, 0.32, 0.32); }
+        for (let i = a; i <= b; i += 10) for (const o of [-RL[i] - 0.1, RR[i] + 0.1]) { const p = pt(i, o); c.refl.rect(p[0] - 0.12, p[1] - 0.12, 0.24, 0.24); }
+        // drift zones: amber bands just inside both road edges
         for (const z of T.driftZones) { const za = Math.max(a, Math.round(z.s0 / T.ds)), zb = Math.min(b, Math.round(z.s1 / T.ds)); if (zb <= za) continue;
-          for (const o of [-half + 1.0, half - 1.0]) { for (let i = za; i <= zb; i++) { const x = T.px[i] + T.nx[i] * o, y = T.py[i] + T.ny[i] * o; if (i === za) c.zone.moveTo(x, y); else c.zone.lineTo(x, y); } } }
-        // chevron signs on the outside of tight bends
-        for (let i = a; i <= b; i += 4) { const k = T.kappa[i]; if (Math.abs(k) > 1 / 48) { const sd = k > 0 ? -1 : 1, o = sd * (sh + 1.4), x = T.px[i] + T.nx[i] * o, y = T.py[i] + T.ny[i] * o; c.signs.rect(x - 0.45, y - 0.45, 0.9, 0.9); } }
-        for (let i = a; i <= b; i += 8) { c.x0 = Math.min(c.x0, T.px[i] - sh - 9); c.x1 = Math.max(c.x1, T.px[i] + sh + 9); c.y0 = Math.min(c.y0, T.py[i] - sh - 9); c.y1 = Math.max(c.y1, T.py[i] + sh + 9); }
+          for (const side of [-1, 1]) for (let i = za; i <= zb; i++) { const p = pt(i, side < 0 ? -HL[i] + 1.0 : HR[i] - 1.0); if (i === za) c.zone.moveTo(p[0], p[1]); else c.zone.lineTo(p[0], p[1]); } }
+        // chevron signs on the outside of bends
+        for (let i = a; i <= b; i += 4) { const k = T.kappa[i]; if (Math.abs(k) > 1 / 70) { const p = pt(i, k > 0 ? -(RL[i] + 1.4) : RR[i] + 1.4); c.signs.rect(p[0] - 0.45, p[1] - 0.45, 0.9, 0.9); } }
+        for (let i = a; i <= b; i += 8) { const m = Math.max(RL[i], RR[i]) + 9; c.x0 = Math.min(c.x0, T.px[i] - m); c.x1 = Math.max(c.x1, T.px[i] + m); c.y0 = Math.min(c.y0, T.py[i] - m); c.y1 = Math.max(c.y1, T.py[i] + m); }
         out.push(c);
       }
       return out;
@@ -236,14 +238,13 @@
     };
 
     function drawGates(T, vb, view) {
-      const half = T.half + 0.3;
-      const gate = (s, color, checker, w) => {
-        const p = T.poseAt(s, 0); if (p.x < vb.x0 - 8 || p.x > vb.x1 + 8 || p.y < vb.y0 - 8 || p.y > vb.y1 + 8) return;
+      const gate = (s, color, checker) => {
+        const p = T.poseAt(s, 0); if (p.x < vb.x0 - 12 || p.x > vb.x1 + 12 || p.y < vb.y0 - 12 || p.y > vb.y1 + 12) return;
+        const e = T.edgeAt(s), l = e.hl + 0.3, r = e.hr + 0.3;                  // across the real road (left edge .. right edge) at this point
         ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.th);
-        if (checker) { const n = 14, cw = (half * 2) / n; for (let i = 0; i < n; i++) for (let j = 0; j < 3; j++) { ctx.fillStyle = (i + j) % 2 ? '#101010' : '#f4f4f4'; ctx.fillRect(j * 0.7 - 1, -half + i * cw, 0.7, cw); } }
-        else { ctx.fillStyle = color; ctx.globalAlpha = 0.55; ctx.fillRect(-0.3, -half, 0.6, half * 2); ctx.globalAlpha = 1; }
-        // gate posts + banner pillars on the rails
-        ctx.fillStyle = '#d9d4c4'; ctx.fillRect(-0.5, -T.railOffset - 0.4, 1, 0.8); ctx.fillRect(-0.5, T.railOffset - 0.4, 1, 0.8);
+        if (checker) { const n = Math.round((l + r) / 0.9), cw = (l + r) / n; for (let i = 0; i < n; i++) for (let j = 0; j < 3; j++) { ctx.fillStyle = (i + j) % 2 ? '#101010' : '#f4f4f4'; ctx.fillRect(j * 0.7 - 1, -l + i * cw, 0.7, cw); } }
+        else { ctx.fillStyle = color; ctx.globalAlpha = 0.55; ctx.fillRect(-0.3, -l, 0.6, l + r); ctx.globalAlpha = 1; }
+        ctx.fillStyle = '#d9d4c4'; ctx.fillRect(-0.5, -e.railL - 0.4, 1, 0.8); ctx.fillRect(-0.5, e.railR - 0.4, 1, 0.8);   // gate posts on the rails
         ctx.restore();
       };
       gate(T.startS, '#7be07b', true); const last = T.checkpoints.length - 1;
@@ -353,15 +354,26 @@
       const rp = clamp(h.rpm, 0, 1); g.lineWidth = 4 * u; g.strokeStyle = rp > 0.88 ? '#ff4a3a' : '#6fc3ff'; g.beginPath(); g.arc(sx, sy, r - 16 * u, a0, a0 + (a1 - a0) * rp); g.stroke();
       g.textAlign = 'center'; g.fillStyle = '#f4f1e8'; g.font = font(sans, 44 * u); g.fillText(String(Math.round(h.speed)), sx, sy + 10 * u); g.fillStyle = '#9aa0ab'; g.font = font(mono, 11 * u); g.fillText(h.units === 'mph' ? 'MPH' : 'KM/H', sx, sy + 28 * u);
       g.fillStyle = amber; g.font = font(sans, 22 * u); g.fillText(h.gear > 0 ? String(h.gear) : 'R', sx, sy - 32 * u);
-      // drift panel
+      // drift panel: eased score, combo bar, and a slip-angle gauge with the "sweet spot" (15-50 degrees) marked
       if (h.drift && (h.mode === 'drift' || h.drift.active || h.drift.score > 0)) {
-        const d = h.drift, cx = W / 2, y0 = pad;
-        g.fillStyle = 'rgba(8,9,12,0.62)'; rr(cx - 150 * u, y0, 300 * u, 78 * u, 14 * u); g.fill();
-        g.textAlign = 'center'; g.fillStyle = '#9aa0ab'; g.font = font(mono, 11 * u); g.fillText(h.mode === 'drift' ? 'DRIFT SCORE' : 'DRIFT', cx, y0 + 20 * u);
-        g.fillStyle = '#f4f1e8'; g.font = font(sans, 34 * u); g.fillText(Math.round(d.score + d.chain).toLocaleString('en-US'), cx, y0 + 52 * u);
-        if (d.active) { g.fillStyle = amber; g.font = font(mono, 14 * u); g.fillText('+' + Math.round(d.chain) + '  ×' + d.combo.toFixed(1) + (d.zone ? '  ZONE ×2' : '') + '   ' + Math.round(Math.abs(d.angle) * 57.3) + '°', cx, y0 + 70 * u); }
-        else if (d.bankMsg) { g.fillStyle = '#7be07b'; g.font = font(mono, 14 * u); g.fillText(d.bankMsg, cx, y0 + 70 * u); }
-        else if (d.lostMsg) { g.fillStyle = '#ff7a5a'; g.font = font(mono, 14 * u); g.fillText(d.lostMsg, cx, y0 + 70 * u); }
+        const d = h.drift, cx = W / 2, y0 = pad, PW = 320 * u, PH = 108 * u, ang = Math.abs(d.angle) * 57.3, live = d.active;
+        g.fillStyle = 'rgba(8,9,12,0.66)'; rr(cx - PW / 2, y0, PW, PH, 14 * u); g.fill();
+        g.textAlign = 'center'; g.fillStyle = '#9aa0ab'; g.font = font(mono, 11 * u); g.fillText(h.mode === 'drift' ? 'DRIFT SCORE' : 'DRIFT', cx, y0 + 19 * u);
+        const sc = 1 + 0.2 * (d.pop || 0), shown = d.shown == null ? d.score + d.chain : d.shown;
+        g.save(); g.translate(cx, y0 + 50 * u); g.scale(sc, sc); g.fillStyle = (d.pop || 0) > 0.05 ? '#9bf09b' : '#f4f1e8'; g.font = font(sans, 34 * u); g.fillText(Math.round(shown).toLocaleString('en-US'), 0, 0); g.restore();
+        if (live) { g.fillStyle = amber; g.font = font(mono, 13 * u); g.fillText('+' + Math.round(d.chain) + '   ×' + d.combo.toFixed(1) + (d.zone ? '   ZONE ×2' : ''), cx, y0 + 68 * u); }
+        else if (d.bankMsg) { g.fillStyle = '#7be07b'; g.font = font(mono, 13 * u); g.fillText(d.bankMsg, cx, y0 + 68 * u); }
+        else if (d.lostMsg) { g.fillStyle = '#ff7a5a'; g.font = font(mono, 13 * u); g.fillText(d.lostMsg, cx, y0 + 68 * u); }
+        else { g.fillStyle = '#6f7580'; g.font = font(mono, 12 * u); g.fillText('slide the car to score', cx, y0 + 68 * u); }
+        // gauge: 0..70 degrees
+        const gx = cx - PW / 2 + 22 * u, gw = PW - 44 * u, gy = y0 + 82 * u, gh = 8 * u, X = a => gx + gw * clamp(a / 70, 0, 1);
+        g.fillStyle = 'rgba(255,255,255,0.1)'; g.fillRect(gx, gy, gw, gh);
+        g.fillStyle = 'rgba(123,224,123,0.35)'; g.fillRect(X(15), gy, X(50) - X(15), gh);                 // sweet spot
+        g.fillStyle = 'rgba(255,106,82,0.3)'; g.fillRect(X(58), gy, X(70) - X(58), gh);                   // too far: about to spin
+        const col = !live ? '#6f7580' : ang < 15 ? amber : ang <= 50 ? '#7be07b' : ang <= 58 ? amber : '#ff6a52';
+        g.fillStyle = col; g.fillRect(X(ang) - 2 * u, gy - 3 * u, 4 * u, gh + 6 * u);
+        g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(gx, gy + gh + 4 * u, gw, 3 * u); g.fillStyle = amber; g.fillRect(gx, gy + gh + 4 * u, gw * clamp((d.combo - 1) / 4, 0, 1), 3 * u);   // combo bar
+        g.fillStyle = '#9aa0ab'; g.font = font(mono, 9 * u); g.textAlign = 'left'; g.fillText('0°', gx, gy - 5 * u); g.textAlign = 'right'; g.fillText('70°', gx + gw, gy - 5 * u); g.textAlign = 'center'; g.fillText(live ? Math.round(ang) + '°' : '', X(ang), gy - 5 * u);
       }
       // centre messages
       g.textAlign = 'center';

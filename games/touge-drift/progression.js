@@ -25,7 +25,7 @@
   const START_CREDITS = 3000;
   const defaultSave = () => ({ v: 1, credits: START_CREDITS, owned: { 'kazan-rz1': V().defaultBuild() }, selected: 'kazan-rz1',
     career: { events: {} }, records: {}, stats: { runs: 0, finishes: 0, wins: 0, driftPoints: 0, bestDriftChain: 0, metres: 0, creditsEarned: 0 }, created: Date.now() });
-  const defaultSettings = () => ({ v: 1, volume: 0.7, muted: false, assist: 2, camera: 0, zoom: 1.25, units: 'kmh', shake: true, particles: 'high', rotation: true });
+  const defaultSettings = () => ({ v: 1, volume: 0.7, muted: false, assist: 2, driveAssist: 'beginner', camera: 1, zoom: 1.25, units: 'kmh', shake: true, particles: 'high', rotation: true });
 
   function sanitizeBuild(b) {
     const d = V().defaultBuild(); b = b && typeof b === 'object' ? b : {};
@@ -56,7 +56,14 @@
       return sanitize(obj);
     },
     store(s) { return Store.set(SAVE_KEY, JSON.stringify(s)); },
-    loadSettings() { const s = Store.json(SETTINGS_KEY, null), d = defaultSettings(); if (!s || typeof s !== 'object') return d; return Object.assign(d, { volume: clamp(+s.volume || 0, 0, 1), muted: !!s.muted, assist: clamp(Math.round(+s.assist), 0, 3), camera: clamp(Math.round(+s.camera) || 0, 0, 2), zoom: clamp(+s.zoom || 1, 0.6, 1.8), units: s.units === 'mph' ? 'mph' : 'kmh', shake: s.shake !== false, particles: s.particles === 'low' ? 'low' : 'high', rotation: s.rotation !== false }); },
+    loadSettings() {
+      const s = Store.json(SETTINGS_KEY, null), d = defaultSettings();
+      if (!s || typeof s !== 'object') { d.driveAssist = Store.get(SAVE_KEY) ? 'standard' : 'beginner'; return d; }   // new players start on Beginner; someone who already has a save keeps the handling they were used to
+      // Driving Assist replaced the old 0-3 "assist" number. Old values map across: Off/Low -> Expert, Medium -> Standard, High -> Beginner.
+      const old = Number.isFinite(+s.assist) ? Math.round(+s.assist) : 2;
+      const drive = ['beginner', 'standard', 'expert'].includes(s.driveAssist) ? s.driveAssist : (old >= 3 ? 'beginner' : old === 2 ? 'standard' : 'expert');
+      return Object.assign(d, { volume: clamp(+s.volume || 0, 0, 1), muted: !!s.muted, assist: clamp(old, 0, 3), driveAssist: drive, camera: clamp(Math.round(+s.camera) || 0, 0, 2), zoom: clamp(+s.zoom || 1, 0.6, 1.8), units: s.units === 'mph' ? 'mph' : 'kmh', shake: s.shake !== false, particles: s.particles === 'low' ? 'low' : 'high', rotation: s.rotation !== false });
+    },
     storeSettings(s) { return Store.set(SETTINGS_KEY, JSON.stringify(s)); },
     loadGhost(courseId) { const g = Store.json(GHOST_PREFIX + courseId, null); return g && Array.isArray(g.data) && g.data.length >= 6 ? g : null; },
     storeGhost(courseId, g) { return Store.set(GHOST_PREFIX + courseId, JSON.stringify(g)); },
@@ -80,7 +87,7 @@
   const MEDAL_MULT = [0, 1, 1.6, 2.4], MEDAL_NAMES = ['None', 'Bronze', 'Silver', 'Gold'];
   const PRACTICE_RATE = 0.1, STARS_TO_UNLOCK = 4;
   // par = time (s) a skill-0.85 AI needs in the stock starter car; medals are multiples of it (checked by the tests)
-  const PAR = { 'pine-ridge': 89, 'moonlight-pass': 115, 'redline-canyon': 138, 'misty-summit': 158, 'blackpine-descent': 189, 'midnight-crown': 222 };
+  const PAR = { 'pine-ridge': 81, 'moonlight-pass': 106, 'redline-canyon': 123, 'misty-summit': 135, 'blackpine-descent': 162, 'midnight-crown': 211 };
   const TIME_MEDAL = [0, 1.45, 1.2, 1.05];                    // bronze / silver / gold = par x ...
   const DRIFT_MEDAL = [0, 0.35, 0.8, 1.5];                       // bronze / silver / gold = this x the course's drift par
   const driftPar = id => { const t = Progress.track(id); return 220 * t.driftZones.length + 200 * t.raceLength / 1000; };   // ~220 points a zone (about one decent hairpin) + 200 a km elsewhere

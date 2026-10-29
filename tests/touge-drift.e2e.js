@@ -107,7 +107,7 @@ const BOT = `(skill, drift) => {
   await startFree(page, 'drift', 'pine-ridge');
   await waitResults(page);
   const D1 = await S(page, () => { const a = __td.app.results; return { fin: a.res.finished, score: a.res.driftScore, best: a.res.bestDrift, ang: a.res.maxAngle, medal: a.out.medal, hits: a.res.hits }; });
-  ok('a Drift Attack run scores from real slip (assist Medium, scripted handbrake + throttle driver): ' + D1.score + ' points, best chain ' + D1.best + ', max angle ' + Math.round(D1.ang * 57.3) + ' deg', D1.fin && D1.score > 0 && D1.ang > 0.25, D1);
+  ok('a Drift Attack run scores from real slip (Beginner assist, scripted handbrake + throttle driver): ' + D1.score + ' points, best chain ' + D1.best + ', max angle ' + Math.round(D1.ang * 57.3) + ' deg', D1.fin && D1.score > 0 && D1.ang > 0.25, D1);
   ok('the drift score was stored as a record and in the stats', await S(page, () => { const r = __td.app.save.records['pine-ridge']; return !!r.drift && r.drift.value === __td.app.results.res.driftScore && __td.app.save.stats.driftPoints >= r.drift.value; }));
   await S(page, () => __td.api.leaveRun('title'));
 
@@ -155,8 +155,11 @@ const BOT = `(skill, drift) => {
   await S(page, () => __td.api.leaveRun('title'));
 
   section('Settings, export / import, reset');
-  await page.click('[data-act="settings"]'); await page.fill('#s-vol', '30'); await page.dispatchEvent('#s-vol', 'input'); await page.selectOption('[data-act="assist"]', '3');
-  ok('settings apply immediately and are stored', await S(page, () => { const s = JSON.parse(localStorage.getItem('td.settings.v1')); return Math.abs(s.volume - 0.3) < 0.01 && s.assist === 3; }));
+  await page.click('[data-act="settings"]'); await page.fill('#s-vol', '30'); await page.dispatchEvent('#s-vol', 'input'); 
+  ok('Driving assist is a setting with Beginner / Standard / Expert, and a first-time player has Beginner (the settings were never changed in this run)', await S(page, () => __td.app.settings.driveAssist === 'beginner') && (await page.$$eval('[data-act="drive"] option', o => o.map(x => x.textContent.trim()))).length === 3);
+  await page.selectOption('[data-act="drive"]', '2');
+  ok('settings apply immediately and are stored', await S(page, () => { const s = JSON.parse(localStorage.getItem('td.settings.v1')); return Math.abs(s.volume - 0.3) < 0.01 && s.driveAssist === 'expert' && __td.app.settings.driveAssist === 'expert'; }));
+  await page.selectOption('[data-act="drive"]', '0');
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('[data-act="export"]')]);
   const exp = JSON.parse(require('fs').readFileSync(await dl.path(), 'utf8'));
   ok('export contains the whole save (cars, medals, records, ghost, settings)', exp.format === 'touge-drift-save' && exp.entries['td.save.v1'] && exp.entries['td.settings.v1'] && exp.entries['td.ghost.v1.pine-ridge'], Object.keys(exp.entries));

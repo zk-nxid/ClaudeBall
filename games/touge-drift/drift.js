@@ -7,7 +7,7 @@
 (function () {
   'use strict';
   const TD = (globalThis.TD = globalThis.TD || {});
-  const MIN_SPEED = 8, MIN_ANGLE = 0.2, MAX_ANGLE = 1.35, ENTRY_DELAY = 0.35, BANK_DELAY = 0.7;
+  const MIN_SPEED = 8, MIN_ANGLE = 0.14, MAX_ANGLE = 1.35, ENTRY_DELAY = 0.25, BANK_DELAY = 0.9, MAX_YAW = 2.1;   // 8 degrees is enough to score; a spin (yaw rate) is not
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 
   function create() {
@@ -21,7 +21,7 @@
     if (d.hitCd > 0) d.hitCd -= dt;
     const ab = Math.abs(car.beta);
     d.angle = car.beta;
-    const eligible = onRoad && car.speed >= MIN_SPEED && car.vx > 2 && ab >= MIN_ANGLE && ab <= MAX_ANGLE;
+    const eligible = onRoad && car.speed >= MIN_SPEED && car.vx > 2 && ab >= MIN_ANGLE && ab <= MAX_ANGLE && Math.abs(car.w) < MAX_YAW;
     if (impact > 2.5 && d.hitCd <= 0) {                                   // crash: lose the unbanked chain, small penalty
       if (d.chain > 0 || d.active) d.events.push({ type: 'lost', points: Math.round(d.chain) });
       const pen = Math.round(Math.min(d.score * 0.25, 40 + impact * 6)); d.score -= pen;           // a crash costs the live chain plus up to a quarter of banked points (never everything) if (pen) d.events.push({ type: 'penalty', points: pen });
@@ -36,10 +36,10 @@
           if (d.time - d.lastFlip < 2.2) { d.combo = Math.min(5, d.combo + 0.5); d.flips++; d.events.push({ type: 'transition', combo: d.combo }); }
           d.sign = sgn; d.lastFlip = d.time;
         }
-        const angF = ab < 0.61 ? ab / 0.61 : 1 - 0.4 * clamp((ab - 0.61) / 0.74, 0, 1);
+        const angF = ab < 0.61 ? 0.25 + 0.75 * ab / 0.61 : 1 - 0.4 * clamp((ab - 0.61) / 0.74, 0, 1);
         const spdF = clamp((car.speed - 5) / 14, 0.25, 1.6);                  // ~1.0 at 19 m/s (68 km/h); hairpins are slow, fast sweepers pay more
         d.combo = Math.min(5, d.combo + 0.14 * dt);
-        d.rate = 60 * angF * spdF * d.combo * (inZone ? 2 : 1);
+        d.rate = 70 * angF * spdF * d.combo * (inZone ? 2 : 1);
         d.chain += d.rate * dt;
         d.maxAngle = Math.max(d.maxAngle, ab);
       }

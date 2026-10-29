@@ -4,7 +4,7 @@
   const TD = (globalThis.TD = globalThis.TD || {});
   const P = TD.Physics, V = TD.Vehicles, Race = TD.Race, Progress = TD.Progress, Save = TD.Save, Audio = TD.Audio;
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
-  const ASSIST = [0, 0.3, 0.55, 0.85], ASSIST_NAMES = ['Off', 'Low', 'Medium', 'High'], CAMERAS = ['Follow', 'Chase', 'Wide'];
+  const DRIVE_MODES = ['beginner', 'standard', 'expert'], DRIVE_NAMES = ['Beginner', 'Standard', 'Expert'], CAMERAS = ['Follow', 'Chase', 'Wide'];
 
   /* ---------- launcher preferences (read-only; shared key written by the launcher) ---------- */
   function launcherPrefs() { try { const s = JSON.parse(TD.Store.get('arcade.v1') || 'null'); return s && s.prefs ? s.prefs : {}; } catch (e) { return {}; } }
@@ -12,7 +12,7 @@
   const app = {
     save: null, settings: null, screen: 'title', race: null, track: null, run: null, paused: false, acc: 0, last: 0, now: 0,
     cam: { x: 0, y: 0, rot: 0, zoom: 1, anchor: 0.58, shake: 0 }, fx: null, keys: {}, pad: null, hud: { banner: null, hint: null, bankMsg: null, lostMsg: null, count: null },
-    demo: null, reducedMotion: false, audioStarted: false, message: null, ghostStored: false, results: null, leaving: false,
+    demo: null, lastDt: 0.016, reducedMotion: false, audioStarted: false, message: null, ghostStored: false, results: null, leaving: false,
   };
 
   const els = { canvas: null };
@@ -24,6 +24,13 @@
     Save.storeSettings(app.settings);
   }
   function setMuted(m) { app.settings.muted = !!m; app.startMuted = false; applySettings(); }
+
+  /** Beginner -> Standard -> Expert. Takes effect straight away, even in a run (the car's handling profile is swapped). */
+  function cycleDrive(to) {
+    const i = to == null ? (DRIVE_MODES.indexOf(app.settings.driveAssist) + 1) % 3 : to; app.settings.driveAssist = DRIVE_MODES[i]; applySettings();
+    if (app.race) { app.race.drive = DRIVE_MODES[i]; app.race.player.c.prof = P.PROFILES[DRIVE_MODES[i]]; }
+    return DRIVE_MODES[i];
+  }
 
   /* ---------- track / demo ---------- */
   function showTrack(id) { const tr = Progress.track(id); if (trackShown !== id) { R.setTrack(tr); trackShown = id; app.fx.clear(); } app.track = tr; return tr; }
@@ -43,10 +50,10 @@
     const track = showTrack(run.courseId), sel = app.save.selected, build = app.save.owned[sel];
     app.run = run; app.ghostStored = false; app.results = null;
     const ghost = run.ghost !== false && run.mode !== 'drift' ? Save.loadGhost(run.courseId) : null;
-    app.race = Race.create({ track, mode: run.mode, player: { carId: sel, build, name: 'You', color: V.paintOf(build) }, rivals: run.rivals || [], assist: ASSIST[app.settings.assist], ghost });
+    app.race = Race.create({ track, mode: run.mode, player: { carId: sel, build, name: 'You', color: V.paintOf(build) }, rivals: run.rivals || [], drive: app.settings.driveAssist, ghost });
     app.fx.clear(); app.paused = false; app.acc = 0; app.demo = null; app.keys = {};
     app.hud = { banner: null, hint: { text: 'W/S  throttle · brake      A/D  steer      SPACE  handbrake      SHIFT  clutch kick      R  reset      C  camera', t: 9 }, bankMsg: null, lostMsg: null, count: null };
-    const p = app.race.player; initCamera(p.c);
+    initCamera(app.race.player);
     app.screen = 'race'; UI.show(null);
   }
   function restartRun() { if (app.run) startRun(app.run); }
@@ -112,17 +119,29 @@
     app.paused = !app.paused; if (app.paused) { Audio.silent(); UI.show('pause'); } else UI.show(null);
   }
 
-  /* ---------- camera ---------- */
-  function initCamera(c) { const cam = app.cam; cam.x = c.x; cam.y = c.y; cam.rot = camTargetRot(c); cam.zoom = 1; cam.shake = 0; }
-  const camTargetRot = c => app.settings.camera === 1 ? -Math.PI / 2 - c.th : 0;
-  function updateCamera(c, dt) {
-    const cam = app.cam, mode = app.settings.camera, w = Math.cos(c.th), s = Math.sin(c.th);
-    const Vx = c.vx * w - c.vy * s, Vy = c.vx * s + c.vy * w;
-    const look = mode === 2 ? 0.35 : 0.62, tx = c.x + Vx * look, ty = c.y + Vy * look, k = 1 - Math.exp(-dt * (mode === 1 ? 5.5 : 4.2));
-    cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
-    let tr = camTargetRot(c), d = tr - cam.rot; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; cam.rot += d * (1 - Math.exp(-dt * 3.2)); if (mode !== 1) cam.rot = tr;
-    const speedZoom = 1 - 0.3 * clamp(c.speed / 55, 0, 1), target = app.settings.zoom * speedZoom * (mode === 2 ? 0.62 : 1);
-    cam.zoom += (target - cam.zoom) * (1 - Math.exp(-dt * 2.5)); cam.anchor = mode === 1 ? 0.68 : 0.5;
+  /* ---------- camera ----------
+   * The camera aims partly at the ROAD ahead of the car (so the next corner is visible before you reach it) and partly along the car's
+   * velocity. Its rotation (Chase) follows the road's direction, not the car's heading, so a slide does not swing the whole screen;
+   * rotation and zoom are low-passed and zoom changes only slightly with speed. */
+  function initCamera(rc) { const cam = app.cam, c = rc.c; cam.x = c.x; cam.y = c.y; cam.rot = camTargetRot(rc); cam.zoom = app.settings.zoom; cam.shake = 0; }
+  function roadAngle(rc) { const tr = app.track; if (!tr) return rc.c.th; const q = tr.poseAt(rc.s + 12, 0); return q.th; }
+  const camTargetRot = rc => app.settings.camera === 1 ? -Math.PI / 2 - roadAngle(rc) : 0;
+  function updateCamera(rc, dt) {
+    const c = rc.c, cam = app.cam, mode = app.settings.camera, tr = app.track, w = Math.cos(c.th), s = Math.sin(c.th);
+    const Vx = c.vx * w - c.vy * s, Vy = c.vx * s + c.vy * w, speed = c.speed;
+    const z = cam.zoom * Math.min(R.W, R.H) / 50, half = Math.min(R.W, R.H) / (2 * z);           // metres from the middle of the view to its short edge
+    let tx = c.x + Vx * 0.25, ty = c.y + Vy * 0.25;
+    if (tr) {
+      const lead = clamp(12 + speed * 0.9, 12, 50), ahead = tr.poseAt(rc.s + lead, 0), k = mode === 2 ? 0.3 : 0.5;
+      let ox = (ahead.x - c.x) * k, oy = (ahead.y - c.y) * k, len = Math.hypot(ox, oy), cap = half * (mode === 1 ? 0.7 : 0.5);
+      if (len > cap) { ox *= cap / len; oy *= cap / len; }
+      tx += ox; ty += oy;
+    }
+    const kp = 1 - Math.exp(-dt * 3.4); cam.x += (tx - cam.x) * kp; cam.y += (ty - cam.y) * kp;
+    const tr0 = camTargetRot(rc); let d = tr0 - cam.rot; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+    cam.rot = mode === 1 ? cam.rot + clamp(d * (1 - Math.exp(-dt * 1.7)), -1.2 * dt, 1.2 * dt) : tr0;    // slow, rate-limited turn
+    const target = app.settings.zoom * (1 - 0.12 * clamp(speed / 55, 0, 1)) * (mode === 2 ? 0.66 : 1);
+    cam.zoom += (target - cam.zoom) * (1 - Math.exp(-dt * 1.1)); cam.anchor = mode === 1 ? 0.66 : 0.5;
     cam.shake = Math.max(0, cam.shake - dt * 2.6);
   }
 
@@ -133,7 +152,7 @@
     const low = app.settings.particles === 'low' || app.reducedMotion;
     const wp = (lx, ly) => [c.x + lx * cosT - ly * sinT, c.y + lx * sinT + ly * cosT];
     rear.forEach((w, i) => { const p = wp(w[0], w[1]); fx.skid(rc.carId + rc.name + 'r' + i, p[0], p[1], c.skid > 0.25 && c.speed > 3 ? c.skid * 0.62 : 0);
-      if (c.skid > 0.22 && c.speed > 4 && Math.random() < (low ? 0.25 : 0.55) * c.skid * 60 * dt) { const dust = c.onSurface < 0.9; fx.smoke(p[0], p[1], -Math.cos(c.th) * 1.5 + (Math.random() - 0.5) * 2, -Math.sin(c.th) * 1.5 + (Math.random() - 0.5) * 2, 0.5 + c.skid * 0.4, dust ? '#a58d66' : '#dcdcdc', 0.8 + Math.random() * 0.8, dust ? 0.4 : 0.34); } });
+      if (c.skid > 0.2 && c.speed > 4 && Math.random() < (low ? 0.3 : 0.9) * Math.min(1, c.skid + 0.2) * 60 * dt) { const dust = c.onSurface < 0.9; fx.smoke(p[0], p[1], -Math.cos(c.th) * 1.5 + (Math.random() - 0.5) * 2, -Math.sin(c.th) * 1.5 + (Math.random() - 0.5) * 2, 0.55 + c.skid * 0.6, dust ? '#a58d66' : '#e6e6e6', 0.9 + Math.random() * 1.0, dust ? 0.42 : 0.42); } });
     front.forEach((w, i) => { const p = wp(w[0], w[1]); fx.skid(rc.carId + rc.name + 'f' + i, p[0], p[1], c.slipF > 1.7 && c.speed > 6 ? Math.min(0.5, (c.slipF - 1.4) * 0.3) : 0); });
     if (c.onSurface < 0.9 && c.speed > 5 && Math.random() < 20 * dt * (low ? 0.4 : 1)) { const p = wp(-a * 0.5, (Math.random() - 0.5) * W * 2); fx.smoke(p[0], p[1], (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, 0.5, '#8d7a58', 0.9, 0.3); }
   }
@@ -152,7 +171,7 @@
       else if (e.type === 'hit' && e.who === p) { Audio.play.hit(e.impact); sparks(p, e.impact); if (app.settings.shake && !app.reducedMotion) app.cam.shake = Math.min(1, e.impact / 14); }
       else if (e.type === 'hit') { sparks(e.who, e.impact * 0.6); }
       else if (e.type === 'bump' && e.who === p) { Audio.play.bump(e.impact); }
-      else if (e.type === 'bank' && e.who === p) { Audio.play.bank(); app.hud.bankMsg = { text: '+' + e.points + ' BANKED', t: 2 }; }
+      else if (e.type === 'bank' && e.who === p) { Audio.play.bank(); app.hud.bankMsg = { text: '+' + e.points + ' BANKED', t: 2 }; app.hud.pop = 1; }
       else if (e.type === 'lost' && e.who === p) { app.hud.lostMsg = { text: e.points > 20 ? 'CHAIN LOST  -' + e.points : 'CRASH', t: 2 }; }
       else if (e.type === 'transition' && e.who === p) { app.hud.banner = { text: 'TRANSITION  ×' + e.combo.toFixed(1), t: 1.1, color: '#7be07b' }; }
       else if (e.type === 'finish') { app.hud.banner = { text: 'FINISH', t: 2.4, color: '#f4f1e8' }; }
@@ -167,7 +186,7 @@
     while (app.acc >= P.DT && n++ < 12) { Race.step(r, readInput()); app.acc -= P.DT; handleEvents(r); if (r.done) break; }
     if (n >= 12) app.acc = 0;
     const p = r.player; if (r.state === 'finished' && !app.results) { finishRun(); return; }
-    updateCamera(p.c, dt);
+    updateCamera(p, dt);
     for (const rc of r.racers) spawnFx(rc, dt);
     app.fx.update(dt);
     // audio follows the player's car
@@ -179,7 +198,7 @@
   function stepDemo(dt) {
     const r = app.demo; app.acc += dt; let n = 0; while (app.acc >= P.DT && n++ < 12) { Race.step(r, null); app.acc -= P.DT; } if (n >= 12) app.acc = 0;
     const c = r.player.c; if (r.done || (r.player.finished && r.t > r.doneAt + 2)) startDemo(app.track.id);
-    updateCamera(c, dt); for (const rc of r.racers) spawnFx(rc, dt); app.fx.update(dt);
+    updateCamera(r.player, dt); for (const rc of r.racers) spawnFx(rc, dt); app.fx.update(dt);
   }
 
   /* ---------- render ---------- */
@@ -199,23 +218,24 @@
     const field = r.racers.length;
     const label = (mode === 'time' ? 'TIME ATTACK' : mode === 'drift' ? 'DRIFT ATTACK' : 'RIVAL BATTLE') + ' · ' + tr.name.toUpperCase();
     const d = p.drift;
+    if (d) { const tgt = d.score + d.chain, sh = hd.shown == null ? tgt : hd.shown; hd.shown = Math.abs(tgt - sh) < 0.6 ? tgt : sh + (tgt - sh) * Math.min(1, app.lastDt * 9); hd.pop = Math.max(0, (hd.pop || 0) - app.lastDt * 2.2); }
     const time = r.state === 'countdown' ? 0 : p.finished ? p.finishTime : r.t + p.penalty;
     let warn = null; if (p.wrong && r.state === 'running') warn = 'WRONG WAY'; else if (p.offRoad > 1.2 && r.state === 'running') warn = 'OFF ROAD';
     return { label, time, penalty: p.penalty, cp: Math.min(p.nextCp, tr.checkpoints.length - 1), cpTotal: tr.checkpoints.length - 1, progress: clamp((p.s - tr.startS) / tr.raceLength, 0, 1), best,
       place: mode === 'rival' ? p.place : 0, field, speed: c.speed * k, rpm: c.rpm, gear: c.vx < -0.5 ? 0 : c.gear, units: app.settings.units, mode,
-      drift: d ? { score: d.score, chain: d.chain, combo: d.combo, active: d.active, zone: d.zone, angle: d.angle, bankMsg: hd.bankMsg && hd.bankMsg.text, lostMsg: hd.lostMsg && hd.lostMsg.text } : null,
+      drift: d ? { shown: hd.shown, pop: hd.pop || 0, rate: d.rate, score: d.score, chain: d.chain, combo: d.combo, active: d.active, zone: d.zone, angle: d.angle, bankMsg: hd.bankMsg && hd.bankMsg.text, lostMsg: hd.lostMsg && hd.lostMsg.text } : null,
       dots: r.racers.map(rc => ({ x: rc.c.x, y: rc.c.y, me: rc.human, color: rc.color })), count: r.state === 'countdown' ? Math.max(1, Math.ceil(-r.clock)) : hd.count, banner: hd.banner, hint: hd.hint, warn };
   }
 
   function frame(t) {
-    const now = t / 1000, dt = Math.min(0.1, app.last ? now - app.last : 0.016); app.last = now; app.now = now;
+    const now = t / 1000, dt = Math.min(0.1, app.last ? now - app.last : 0.016); app.last = now; app.now = now; app.lastDt = dt;
     try { simulate(dt); render(); } catch (err) { console.error(err); }
     requestAnimationFrame(frame);
   }
 
   /* ---------- public API for the UI ---------- */
   const api = {
-    app, inputOverride: null, ASSIST_NAMES, CAMERAS, startRun, restartRun, leaveRun, togglePause, resume() { if (app.paused) togglePause(); },
+    app, inputOverride: null, DRIVE_MODES, DRIVE_NAMES, CAMERAS, cycleDrive, startRun, restartRun, leaveRun, togglePause, resume() { if (app.paused) togglePause(); },
     applySettings, setMuted, startDemo, showTrack,
     saveNow() { Save.store(app.save); },
     exportSave() { Save.store(app.save); return Save.exportAll(); },

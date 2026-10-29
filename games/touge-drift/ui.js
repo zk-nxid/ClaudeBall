@@ -90,7 +90,7 @@
         else h += '<div class="targets">' + (run.rivals || []).map(r => '<div class="t"><b>' + esc(r.name) + '</b><span>' + esc(carName(r.carId)) + ' &middot; skill ' + Math.round(r.skill * 100) + '</span></div>').join('') + '</div>';
         h += '</div><div class="card"><span class="kicker">YOUR CAR</span><h3>' + esc(car.name) + '</h3><p>' + esc(car.cls) + ' &middot; ' + an.hp + ' hp &middot; ' + an.kg + ' kg &middot; ' + car.drive + '</p><button class="btn small" data-act="garage-from">Change car / tune</button>' +
           (ghost ? '<label class="chk"><input type="checkbox" data-act="ghost"' + (run.ghost !== false ? ' checked' : '') + '> Race my ghost (' + fmtT(ghost.time) + ')</label>' : '') +
-          '<p class="note">Assist: ' + api.ASSIST_NAMES[app.settings.assist] + ' &middot; Camera: ' + api.CAMERAS[app.settings.camera] + ' (C to change)</p></div></div><div class="actions"><button class="btn primary" data-act="go" data-focus>Start</button></div>';
+          '<button class="btn small" data-act="drive">Driving assist: ' + api.DRIVE_NAMES[api.DRIVE_MODES.indexOf(app.settings.driveAssist)] + '</button><p class="note">Camera: ' + api.CAMERAS[app.settings.camera] + ' (C to change)</p></div></div><div class="actions"><button class="btn primary" data-act="go" data-focus>Start</button></div>';
         render(h, 'prerace');
       },
       garage() { renderGarage(); },
@@ -103,7 +103,7 @@
       settings() { renderSettings(); },
       results(d) { renderResults(d); },
       pause() {
-        render('<div class="panel"><h2>Paused</h2><button class="btn primary" data-act="resume" data-focus>Resume</button><button class="btn" data-act="restart">Restart</button><button class="btn" data-act="cam">Camera: ' + api.CAMERAS[app.settings.camera] + '</button><button class="btn" data-act="mute">Sound: ' + (app.settings.muted ? 'Off' : 'On') + '</button><button class="btn" data-act="settings-pause">Settings</button>' +
+        render('<div class="panel"><h2>Paused</h2><button class="btn primary" data-act="resume" data-focus>Resume</button><button class="btn" data-act="restart">Restart</button><button class="btn" data-act="drive">Driving assist: ' + api.DRIVE_NAMES[api.DRIVE_MODES.indexOf(app.settings.driveAssist)] + '</button><button class="btn" data-act="cam">Camera: ' + api.CAMERAS[app.settings.camera] + '</button><button class="btn" data-act="mute">Sound: ' + (app.settings.muted ? 'Off' : 'On') + '</button><button class="btn" data-act="settings-pause">Settings</button>' +
           '<button class="btn" data-act="library">&larr; Back to Library</button><button class="btn danger" data-act="quit">Quit to menu</button></div>', 'pause');
       },
     };
@@ -172,7 +172,7 @@
       render(top('Settings', true, '<span></span>') + '<div class="body settings"><div class="grp"><h4>Audio</h4>' +
         '<div class="setrow"><label for="s-vol">Volume</label><input id="s-vol" type="range" min="0" max="100" value="' + Math.round(st.volume * 100) + '" data-act="vol"><output>' + Math.round(st.volume * 100) + '%</output></div>' +
         '<div class="setrow"><label>Sound</label><button class="btn small" data-act="mute">' + (st.muted ? 'Muted' : 'On') + '</button></div>' + (app.startMuted ? '<p class="note">Muted at start by your Library preference. Press Sound to turn it on.</p>' : '') + '</div>' +
-        '<div class="grp"><h4>Driving</h4><div class="setrow"><label>Driving assist</label>' + sel('assist', api.ASSIST_NAMES, st.assist) + '</div><p class="note">Countersteer and throttle help while the car is sliding. Off = raw physics (hard on a keyboard).</p>' +
+        '<div class="grp"><h4>Driving</h4><div class="setrow"><label>Driving assist</label>' + sel('drive', api.DRIVE_NAMES, api.DRIVE_MODES.indexOf(st.driveAssist)) + '</div><p class="note"><b>Beginner:</b> gentle steering, strong countersteer help, a handbrake that starts a slide without throwing the car round, and a light nudge away from the rails. <b>Standard:</b> balanced arcade handling. <b>Expert:</b> little help; the car snaps and spins if you are careless. You still have to steer, brake, use the handbrake and manage the throttle in every mode.</p>' +
         '<div class="setrow"><label>Camera</label>' + sel('camera', api.CAMERAS, st.camera) + '</div><div class="setrow"><label for="s-zoom">Zoom</label><input id="s-zoom" type="range" min="60" max="180" value="' + Math.round(st.zoom * 100) + '" data-act="zoom"><output>' + Math.round(st.zoom * 100) + '%</output></div>' +
         '<div class="setrow"><label>Speed units</label>' + sel('units', ['km/h', 'mph'], st.units === 'mph' ? 1 : 0) + '</div></div>' +
         '<div class="grp"><h4>Effects</h4><div class="setrow"><label>Particles &amp; detail</label>' + sel('particles', ['High', 'Low'], st.particles === 'low' ? 1 : 0) + '</div><div class="setrow"><label>Camera shake</label><button class="btn small" data-act="shake"' + (rm ? ' disabled' : '') + '>' + (st.shake && !rm ? 'On' : 'Off') + '</button></div>' + (rm ? '<p class="note">Reduced motion is on (Library setting or your system), so shake and heavy effects are off.</p>' : '') + '</div>' +
@@ -224,7 +224,7 @@
       buyup(el) { const r = Progress.buyUpgrade(save(), U.garage.carId, el.dataset.k, +el.dataset.n); if (r.ok) { Audio.play.buy(); api.saveNow(); } else { Audio.play.deny(); toast(r.error); } refresh(); },
       tire(el) { const r = Progress.buyUpgrade(save(), U.garage.carId, 'tires', +el.dataset.n); if (r.ok) { r.cost ? Audio.play.buy() : Audio.play.click(); api.saveNow(); } else { Audio.play.deny(); toast(r.error); } refresh(); },
       paint(el) { Progress.setCosmetic(save(), U.garage.carId, 'paint', +el.dataset.n); api.saveNow(); Audio.play.click(); refresh(); }, wheel(el) { Progress.setCosmetic(save(), U.garage.carId, 'wheel', +el.dataset.n); api.saveNow(); Audio.play.click(); refresh(); }, wcolor(el) { Progress.setCosmetic(save(), U.garage.carId, 'wheelColor', +el.dataset.n); api.saveNow(); Audio.play.click(); refresh(); },
-      resume() { api.resume(); }, restart() { api.restartRun(); }, mute() { api.setMuted(!app.settings.muted); Audio.play.click(); refresh(); }, cam() { app.settings.camera = (app.settings.camera + 1) % 3; api.applySettings(); refresh(); },
+      drive() { api.cycleDrive(); Audio.play.click(); refresh(); }, resume() { api.resume(); }, restart() { api.restartRun(); }, mute() { api.setMuted(!app.settings.muted); Audio.play.click(); refresh(); }, cam() { app.settings.camera = (app.settings.camera + 1) % 3; api.applySettings(); refresh(); },
       async quit() { if (await confirmBox('Quit to menu?', 'This run will not be saved.', 'Quit')) { U.stack = []; api.leaveRun('title'); } },
       again() { Audio.play.click(); api.restartRun(); },
       nextev(el) { Audio.play.click(); const ev = Progress.eventById(el.dataset.id); U.stack = []; api.leaveRun('career'); show('region', ev.region, true); startEvent(ev.id); },
@@ -250,7 +250,7 @@
     });
     root.addEventListener('change', e => {
       const el = e.target.closest('[data-act]'); if (!el) return; const a = el.dataset.act;
-      if (a === 'assist') { app.settings.assist = +el.value; api.applySettings(); } else if (a === 'camera') { app.settings.camera = +el.value; api.applySettings(); }
+      if (a === 'drive') { api.cycleDrive(+el.value); } else if (a === 'camera') { app.settings.camera = +el.value; api.applySettings(); }
       else if (a === 'units') { app.settings.units = +el.value ? 'mph' : 'kmh'; api.applySettings(); } else if (a === 'particles') { app.settings.particles = +el.value ? 'low' : 'high'; api.applySettings(); }
       else if (a === 'ghost') { U.data.ghost = el.checked; } else if (a === 'diff') { api.saveNow(); refresh(); }
       else if (e.target.id === 'imp' && e.target.files[0]) { doImport(e.target.files[0]); e.target.value = ''; }

@@ -9,7 +9,7 @@
 
   /* unlock: { region: n } = the n-th career region must be unlocked (n = 1 is available from the start). */
   const CARS = [
-    { id: 'kazan-rz1', name: 'Kazan RZ-1', cls: 'Lightweight RWD Coupe', drive: 'RWD', hp: 200, kg: 1050, wf: 0.53, L: 2.43, top: 215, mu: 1.04, slideR: 0.83, alpha: 0.145, diff: 0.25, price: 0, unlock: { region: 1 },
+    { id: 'kazan-rz1', name: 'Kazan RZ-1', cls: 'Lightweight RWD Coupe', drive: 'RWD', hp: 200, kg: 1050, wf: 0.53, L: 2.43, top: 215, mu: 1.04, slideR: 0.88, alpha: 0.152, diff: 0.35, price: 0, unlock: { region: 1 },
       blurb: 'Light, honest and forgiving. The perfect first dance partner.', len: 4.2, wid: 1.76, nose: 0.5, tail: 0.35, cab: [0.34, 0.74], roof: 'closed', spoiler: 'lip', hood: 0.32 },
     { id: 'sora-hatch', name: 'Sora Hatch S', cls: 'Compact FWD Hatchback', drive: 'FWD', hp: 150, kg: 990, wf: 0.62, L: 2.5, top: 200, mu: 1.1, slideR: 0.9, alpha: 0.155, diff: 0.1, price: 7000, unlock: { region: 1 },
       blurb: 'Front-wheel drive, tidy and quick on corner exit. Slides need a lift or the handbrake.', len: 3.95, wid: 1.72, nose: 0.4, tail: 0.15, cab: [0.3, 0.86], roof: 'closed', spoiler: 'none', hood: 0.28 },

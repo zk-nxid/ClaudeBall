@@ -90,6 +90,69 @@ section('Physics: upgrades change real behaviour');
   ok('cars cover all three drivetrains', ['RWD', 'FWD', 'AWD'].every(d => V.CARS.some(c => c.drive === d)) && V.CARS.length === 8);
 }
 
+
+section('Handling profiles (Beginner / Standard / Expert): drifting is learnable, not scripted');
+{
+  const PROFS = ['beginner', 'standard', 'expert'];
+  const run = (carId, prof, v0, steer, hbLen, build) => {
+    const car = P.createCar(V.toPhysics(V.carById(carId), build), 0, 0, 0, prof); car.vx = v0; let maxB = 0, spin = false, band = 0, endB = 0;
+    for (let i = 0; i < 5 * 120; i++) { const t = i / 120, raw = t < 0.25 ? 0 : (t < 3.2 ? steer : 0), hb = t > 0.3 && t < 0.3 + hbLen;
+      P.driverSteer(car, raw, undefined, P.DT); P.driverPedals(car, 1, 0, P.DT, undefined);
+      P.step(car, { throttle: car.thr, brake: 0, steer: car.steer, handbrake: hb }, 1);
+      const ab = Math.abs(car.beta); maxB = Math.max(maxB, ab); if (ab > 1.4 || car.vx < -1) spin = true; if (ab > 0.2 && ab < 0.9) band += P.DT; }
+    return { maxB, spin, band, endB: Math.abs(car.beta), car };
+  };
+  const sweep = (carId, prof, build) => { let n = 0, spins = 0, none = 0, nn = 0, band = 0; for (const v of [16, 20, 24, 28, 32]) for (const st of [0.5, 0.8, 1]) for (const hb of [0.2, 0.4, 0.7, 1.0]) { const r = run(carId, prof, v, st, hb, build); n++; if (r.spin) spins++; band += r.band; if (hb >= 0.4) { nn++; if (r.maxB < 0.2) none++; } } return { spin: spins / n, none: none / nn, band: band / n }; };
+  const S = {}; for (const c of V.CARS) { S[c.id] = {}; for (const p of PROFS) S[c.id][p] = sweep(c.id, p); }
+  ok('Beginner: the starter car never spins out across 60 handbrake-initiated slides (speeds 58-115 km/h, 3 steering amounts, 4 handbrake lengths)', S['kazan-rz1'].beginner.spin === 0, S['kazan-rz1'].beginner);
+  ok('Beginner: no car spins out at all, whatever the drivetrain or power (' + V.CARS.map(c => c.id.split('-')[0] + ' ' + Math.round(S[c.id].beginner.spin * 100) + '%').join(', ') + ')', V.CARS.every(c => S[c.id].beginner.spin === 0));
+  ok('Standard: starter car does not spin out, and the 480 hp drift car under 10% (' + Math.round(S['ryujin-drx'].standard.spin * 100) + '%)', S['kazan-rz1'].standard.spin === 0 && S['ryujin-drx'].standard.spin < 0.1);
+  ok('Expert is the demanding one: the starter car spins in more than a third of the same slides (' + Math.round(S['kazan-rz1'].expert.spin * 100) + '%)', S['kazan-rz1'].expert.spin > 0.33);
+  ok('the three modes are meaningfully different: spin-outs Beginner < Standard < Expert on the 480 hp car', S['ryujin-drx'].beginner.spin < S['ryujin-drx'].standard.spin + 0.001 && S['ryujin-drx'].standard.spin < S['ryujin-drx'].expert.spin);
+  ok('the handbrake starts a slide predictably: RWD starter car, a 0.4 s tap or longer gives 12+ degrees at every tested speed', S['kazan-rz1'].beginner.none === 0 && S['kazan-rz1'].standard.none === 0);
+  ok('...and rotates the stabler FWD and AWD cars too (under 20% of taps leave them gripping), so each drivetrain can be drifted', ['sora-hatch', 'tsurugi-rs4', 'raiden-gtawd'].every(id => S[id].beginner.none < 0.2 && S[id].standard.none < 0.05), ['sora-hatch', 'tsurugi-rs4', 'raiden-gtawd'].map(id => S[id].beginner.none));
+  ok('Beginner: a handbrake slide at a typical drift speed stays in the controllable 11-50 degree band for seconds (starter car: ' + S['kazan-rz1'].beginner.band.toFixed(1) + ' s average)', S['kazan-rz1'].beginner.band > 1.5);
+  ok('the starter car is the most forgiving RWD car at Standard (fewest spins; no spin-outs at all)', S['kazan-rz1'].standard.spin <= S['hayate-rd'].standard.spin && S['kazan-rz1'].standard.spin <= S['orochi-tgt'].standard.spin);
+
+  // a held drift: handbrake tap, then hold steer + throttle like a keyboard player; must be sustained, and straighten when the keys are released
+  const held = (prof, v0) => { const car = P.createCar(V.toPhysics(V.carById('kazan-rz1')), 0, 0, 0, prof); car.vx = v0; let band = 0, maxB = 0, spun = false, endB = 1;
+    for (let i = 0; i < 9 * 120; i++) { const t = i / 120, raw = t < 0.2 ? 0 : (t < 5.2 ? 1 : 0), hb = t > 0.3 && t < 0.7; const thr = t < 5.2 ? 1 : 0.3;
+      P.driverSteer(car, raw, undefined, P.DT); P.driverPedals(car, thr, 0, P.DT, undefined); P.step(car, { throttle: car.thr, brake: 0, steer: car.steer, handbrake: hb }, 1);
+      const ab = Math.abs(car.beta); maxB = Math.max(maxB, ab); if (ab > 1.4 || car.vx < -1) spun = true; if (ab > 0.2 && ab < 0.9 && t < 5.2) band += P.DT; if (i === 9 * 120 - 1) endB = ab; }
+    return { band, maxB, spun, endB }; };
+  for (const v of [18, 22, 26]) { const h = held('beginner', v); ok('Beginner, ' + Math.round(v * 3.6) + ' km/h: a tapped handbrake turns into a held controlled slide (' + h.band.toFixed(1) + ' s in the 11-50 degree band, peak ' + Math.round(h.maxB * 57.3) + ' deg), no spin, and it straightens after release (' + Math.round(h.endB * 57.3) + ' deg)', h.band > 1.9 && !h.spun && h.maxB < 0.95 && h.endB < 0.12, h); }
+
+  // steering is not twitchy at speed
+  const steerTest = (prof, v) => { const car = P.createCar(V.toPhysics(V.carById('kazan-rz1')), 0, 0, 0, prof); car.vx = v; let lat = 0, yaw = 0, t90 = null; for (let i = 0; i < 0.8 * 120; i++) { P.driverSteer(car, 1, undefined, P.DT); P.driverPedals(car, 0.3, 0, P.DT, undefined); P.step(car, { throttle: car.thr, brake: 0, steer: car.steer }, 1); lat = Math.max(lat, Math.abs(car.latG)); yaw = Math.max(yaw, Math.abs(car.w)); if (t90 == null && Math.abs(car.steer) >= 0.9) t90 = i * P.DT; } return { lat, yaw, t90 }; };
+  const sb = steerTest('beginner', 40), ss = steerTest('standard', 40), se = steerTest('expert', 40);
+  ok('steering at 144 km/h is tame in Beginner: a full-lock tap peaks at ' + sb.lat.toFixed(2) + ' g (Standard ' + ss.lat.toFixed(2) + ', Expert ' + se.lat.toFixed(2) + ')', sb.lat < 1.2 && sb.lat < ss.lat && ss.lat < se.lat);
+  ok('...and the wheel moves gradually (90% of lock takes ' + sb.t90.toFixed(2) + ' s at that speed, vs ' + se.t90.toFixed(2) + ' s in Expert), faster at low speed', sb.t90 > 0.25 && sb.t90 > se.t90 + 0.05 && steerTest('beginner', 12).t90 < sb.t90);
+  ok('speed-sensitive: the same tap makes far less yaw at 144 km/h than at 43 km/h in Beginner is NOT required, but lock shrinks with speed', (() => { const c1 = P.createCar(V.toPhysics(V.carById('kazan-rz1')), 0, 0, 0, 'beginner'), c2 = P.createCar(V.toPhysics(V.carById('kazan-rz1')), 0, 0, 0, 'beginner'); c1.vx = 12; c2.vx = 40; return P.steerLimit(c2) < P.steerLimit(c1) * 0.6; })());
+
+  // countersteer recovers a slide (assist OFF: the player does it)
+  const recov = () => { const car = P.createCar(V.toPhysics(V.carById('kazan-rz1')), 0, 0, 0, 'standard'); car.vx = 27; for (let i = 0; i < 130; i++) { const t = i / 120; P.driverSteer(car, t < 0.2 ? 0 : 1, 0, P.DT); P.driverPedals(car, 1, 0, P.DT, 0); P.step(car, { throttle: car.thr, brake: 0, steer: car.steer, handbrake: t > 0.25 && t < 0.95 }, 1); }
+    const b0 = Math.abs(car.beta); let t = 0; while (t < 4 && Math.abs(car.beta) > 0.06) { const dir = Math.sign(car.beta); P.driverSteer(car, Math.max(-1, Math.min(1, dir * 0.9)), 0, P.DT); P.driverPedals(car, 0, 0, P.DT, 0); P.step(car, { throttle: car.thr, brake: 0, steer: car.steer }, 1); t += P.DT; } return { b0, t, b1: Math.abs(car.beta) }; };
+  const rc = recov(); ok('countersteering and lifting recovers a ' + Math.round(rc.b0 * 57.3) + ' degree slide to straight in ' + rc.t.toFixed(1) + ' s with NO assist (the player can do it)', rc.b0 > 0.3 && rc.b1 <= 0.06 && rc.t < 2.5, rc);
+  const rec2 = (() => { const car = P.createCar(V.toPhysics(V.carById('kazan-rz1')), 0, 0, 0, 'beginner'); car.vx = 22; for (let i = 0; i < 100; i++) { const t = i / 120; P.driverSteer(car, t < 0.2 ? 0 : 1, undefined, P.DT); P.driverPedals(car, 1, 0, P.DT, undefined); P.step(car, { throttle: car.thr, brake: 0, steer: car.steer, handbrake: t > 0.25 && t < 0.7 }, 1); }
+    let t = 0; while (t < 4 && Math.abs(car.beta) > 0.06) { P.driverSteer(car, 0, undefined, P.DT); P.driverPedals(car, 0, 0, P.DT, undefined); P.step(car, { throttle: car.thr, brake: 0, steer: car.steer }, 1); t += P.DT; } return { t, b: Math.abs(car.beta) }; })();
+  ok('Beginner: simply letting go of the keys straightens the car out (' + rec2.t.toFixed(1) + ' s)', rec2.b <= 0.06 && rec2.t < 2.5, rec2);
+  // left <-> right transition
+  const trans = (prof) => { const car = P.createCar(V.toPhysics(V.carById('kazan-rz1')), 0, 0, 0, prof); car.vx = 24; let maxB = 0, flipped = false, sgn0 = 0, spun = false;
+    for (let i = 0; i < 9 * 120; i++) { const t = i / 120, raw = t < 0.2 ? 0 : t < 3.4 ? 1 : -1, hb = (t > 0.25 && t < 0.65) || (t > 3.4 && t < 3.75);
+      P.driverSteer(car, raw, undefined, P.DT); P.driverPedals(car, t < 3.3 ? 1 : 0.6, 0, P.DT, undefined); P.step(car, { throttle: car.thr, brake: 0, steer: car.steer, handbrake: hb }, 1);
+      maxB = Math.max(maxB, Math.abs(car.beta)); if (car.vx < -1 || Math.abs(car.beta) > 1.4) spun = true; if (t > 2.5 && t < 3.3 && Math.abs(car.beta) > 0.15) sgn0 = Math.sign(car.beta); if (t > 3.5 && sgn0 && Math.sign(car.beta) === -sgn0 && Math.abs(car.beta) > 0.15) flipped = true; }
+    return { maxB, flipped, spun }; };
+  const tb = trans('beginner'), ts = trans('standard'); ok('a right-to-left transition flick swings the slide the other way without spinning (Beginner ' + (tb.flipped ? 'flipped' : 'no flip') + ', peak ' + Math.round(tb.maxB * 57.3) + ' deg; Standard peak ' + Math.round(ts.maxB * 57.3) + ' deg)', tb.flipped && !tb.spun && !ts.spun, [tb, ts]);
+
+  // upgrades still change handling in every mode
+  const stock = V.defaultBuild(), slick = Object.assign(V.defaultBuild(), { tires: 3, susp: 3 });
+  const gripTest = (build, prof) => { let best = 0; for (const st of [0.3, 0.5, 0.7, 0.9]) { const c = P.createCar(V.toPhysics(V.carById('kazan-rz1'), build), 0, 0, 0, prof); c.vx = 24; let lat = 0, n = 0; for (let i = 0; i < 3 * 120; i++) { P.driverSteer(c, st, undefined, P.DT); P.driverPedals(c, 0.4, 0, P.DT, undefined); P.step(c, { throttle: c.thr, brake: 0, steer: c.steer }, 1); if (i > 2 * 120) { lat += Math.abs(c.w * c.speed) / 9.81; n++; } } best = Math.max(best, lat / n); } return best; };
+  ok('semi-slicks + race suspension still raise cornering grip in every mode (' + PROFS.map(p => p + ' ' + gripTest(stock, p).toFixed(2) + ' -> ' + gripTest(slick, p).toFixed(2) + ' g').join(', ') + ')', PROFS.every(p => gripTest(slick, p) > gripTest(stock, p) + 0.03));
+  const a0 = V.analyze(V.carById('kazan-rz1'), stock), a1 = V.analyze(V.carById('kazan-rz1'), { engine: 3, weight: 2 });
+  ok('engine and weight upgrades still shorten 0-100 and raise power', a1.t100 < a0.t100 && a1.hp > a0.hp);
+  ok('each drivetrain feels different: stable AWD vs loose RWD under the same Expert-mode kick (slip ' + Math.round(run('tsurugi-rs4', 'expert', 22, 0.7, 0.45).maxB * 57.3) + ' vs ' + Math.round(run('kazan-rz1', 'expert', 22, 0.7, 0.45).maxB * 57.3) + ' deg)', run('tsurugi-rs4', 'expert', 22, 0.7, 0.45).maxB < run('kazan-rz1', 'expert', 22, 0.7, 0.45).maxB);
+}
+
 section('Tracks: six continuous, finishable mountain roads');
 const tracks = T.COURSES.map(c => T.build(c));
 ok('six courses', tracks.length === 6 && ['Pine Ridge', 'Moonlight Pass', 'Redline Canyon', 'Misty Summit', 'Blackpine Descent', 'Midnight Crown'].every((n, i) => tracks[i].name === n));
@@ -97,12 +160,12 @@ tracks.forEach(tr => {
   let maxStep = 0, maxTurn = 0, maxDk = 0, minR = 1e9, bad = false;
   for (let i = 0; i < tr.n - 1; i++) { const d = Math.hypot(tr.px[i + 1] - tr.px[i], tr.py[i + 1] - tr.py[i]); maxStep = Math.max(maxStep, Math.abs(d - T.DS)); let dh = tr.hd[i + 1] - tr.hd[i]; while (dh > Math.PI) dh -= 2 * Math.PI; while (dh < -Math.PI) dh += 2 * Math.PI; maxTurn = Math.max(maxTurn, Math.abs(dh)); maxDk = Math.max(maxDk, Math.abs(tr.kappa[i + 1] - tr.kappa[i])); if (Math.abs(tr.kappa[i]) > 1e-6) minR = Math.min(minR, 1 / Math.abs(tr.kappa[i])); if (!isFinite(tr.px[i] + tr.py[i])) bad = true; }
   ok(tr.name + ': continuous road (even spacing, curvature changes smoothly: no kinks)', maxStep < 0.05 && maxDk < 0.03 && maxTurn < 0.25 && !bad, [maxStep, maxDk, maxTurn]);
-  ok(tr.name + ': never comes close to itself (clearance ' + T.clearance(tr).toFixed(1) + ' m)', T.clearance(tr) >= 2 * tr.railOffset + 5 - 0.01);
-  ok(tr.name + ': has hairpins (min radius ' + minR.toFixed(1) + ' m)', minR < 20);
+  ok(tr.name + ': never comes close to itself (clearance ' + T.clearance(tr).toFixed(1) + ' m, need ' + tr.need.toFixed(1) + ')', T.clearance(tr) >= tr.need - 0.01);
+  ok(tr.name + ': has hairpins (min radius ' + minR.toFixed(1) + ' m)', minR < 26 && minR > 12);
   ok(tr.name + ': checkpoints ordered, finish last', tr.checkpoints.every((c, i, a) => i === 0 || c.s > a[i - 1].s) && tr.checkpoints[tr.checkpoints.length - 1].finish && tr.checkpoints.length >= 4);
   ok(tr.name + ': drift zones inside the race', tr.driftZones.length >= 3 && tr.driftZones.every(z => z.s0 >= tr.startS && z.s1 <= tr.finishS));
   const sc = tr.buildScenery(), sc2 = T.build(tr.id).buildScenery();
-  ok(tr.name + ': scenery is deterministic and stays off the road', sc.items.length === sc2.items.length && sc.items[10].x === sc2.items[10].x && sc.items.every((it, k) => k % 25 || Math.abs(tr.query(it.x, it.y, -1).offset) > tr.railOffset));
+  ok(tr.name + ': scenery is deterministic and stays off the road', sc.items.length === sc2.items.length && sc.items[10].x === sc2.items[10].x && sc.items.every((it, k) => { if (k % 25) return true; const q = tr.query(it.x, it.y, -1); return Math.abs(q.offset) > q.rail + 1; }));
   const p = tr.poseAt(tr.length / 2, 2.5), q = tr.query(p.x, p.y, -1);
   ok(tr.name + ': query() inverts poseAt()', near(q.s, tr.length / 2, 0.6) && near(q.offset, 2.5, 0.2), [q.s, q.offset]);
 });
@@ -111,9 +174,39 @@ ok('difficulty rises: courses get longer and narrower', tracks.every((t, i) => i
   const tr = tracks[0], car = P.createCar(V.toPhysics(V.carById('kazan-rz1'), null), 0, 0, 0), pose = tr.poseAt(300, 0);
   car.x = pose.x; car.y = pose.y; car.th = pose.th + 0.5; car.vx = 25;
   let worst = 0, outside = 0;
-  for (let i = 0; i < 120 * 6; i++) { P.step(car, { throttle: 0.5, brake: 0, steer: 0 }, 1); worst = Math.max(worst, P.collideTrack(car, tr, -1)); const q = tr.query(car.x, car.y, -1); if (Math.abs(q.offset) > tr.railOffset + 0.3) outside++; }
+  for (let i = 0; i < 120 * 6; i++) { P.step(car, { throttle: 0.5, brake: 0, steer: 0 }, 1); worst = Math.max(worst, P.collideTrack(car, tr, -1)); const q = tr.query(car.x, car.y, -1); if (Math.abs(q.offset) > q.rail + 0.3) outside++; }
   ok('driving into the guard rail registers an impact and keeps the car on the road', worst > 2 && outside === 0, [worst, outside]);
 }
+
+section('Roads: wider, flared hairpins, one geometry for rendering / collision / checkpoints');
+{
+  const OLD = [9.2, 8.8, 8.4, 8.2, 7.8, 7.6];
+  tracks.forEach((tr, k) => {
+    ok(tr.name + ': road is ' + Math.round((tr.width / OLD[k] - 1) * 100) + '% wider than before (' + OLD[k] + ' -> ' + tr.width + ' m)', tr.width / OLD[k] >= 1.3 && tr.width / OLD[k] <= 1.55);
+    let maxStep = 0, flare = 0, minL = 1e9, minR = 1e9;
+    for (let i = 0; i < tr.n - 1; i++) { maxStep = Math.max(maxStep, Math.abs(tr.hl[i + 1] - tr.hl[i]), Math.abs(tr.hr[i + 1] - tr.hr[i])); flare = Math.max(flare, tr.hl[i] - tr.half, tr.hr[i] - tr.half); minL = Math.min(minL, tr.hl[i]); minR = Math.min(minR, tr.hr[i]); }
+    ok(tr.name + ': hairpin outsides flare ' + flare.toFixed(1) + ' m wider, widths change smoothly (max step ' + maxStep.toFixed(3) + ' m per sample), never narrower than the nominal road', flare > 2 && maxStep < 0.2 && minL >= tr.half - 0.01 && minR >= tr.half - 0.01, [flare, maxStep, minL, minR]);
+    // the collision rail is where the render puts it: query() and edgeAt() read the same arrays, at every sample and between
+    let mism = 0; for (let s = tr.startS; s < tr.finishS; s += 3.7) { const e = tr.edgeAt(s), pL = tr.poseAt(s, -(e.railL - 0.2)), pR = tr.poseAt(s, e.railR - 0.2), rl = tr.query(pL.x, pL.y, -1).rail, rr = tr.query(pR.x, pR.y, -1).rail;
+      if (Math.abs(rl - e.railL) > 0.15 || Math.abs(rr - e.railR) > 0.15) mism++; if (e.railL < e.hl || e.railR < e.hr) mism++; }
+    ok(tr.name + ': collision rails match the drawn road edges along the whole course', mism === 0, mism);
+    ok(tr.name + ': every checkpoint gate and the start line sit inside the road', tr.checkpoints.every(c => { const e = tr.edgeAt(c.s); return e.hl > 4 && e.hr > 4; }) && tr.railMax < tr.need / 2);
+  });
+  // driving the nominal and the outside-flared edge of every hairpin must not touch a wall
+  let bad = 0; for (const tr of tracks) for (let s = tr.startS; s < tr.finishS; s += 2) { const e = tr.edgeAt(s); for (const o of [-(e.hl - 1.5), e.hr - 1.5]) { const p = tr.poseAt(s, o), q = tr.query(p.x, p.y, -1); if (Math.abs(q.offset - o) > 0.2) bad++; } }
+  ok('every point inside the drawn road maps back to the same place on the centre line (no gaps, overlaps or folded corners)', bad === 0, bad);
+}
+
+section('Courses: all six are completable by a keyboard-style player (no assist from the AI)');
+{
+  const { makeBot } = require('./lib/keyboard-bot.js');
+  for (const prof of ['beginner', 'standard']) for (const c of T.COURSES) {
+    const track = Progress.track(c.id), r = Race.create({ track, mode: 'time', player: { carId: 'kazan-rz1', name: 'bot' }, rivals: [], drive: prof }), bot = makeBot(r, { skill: 0.6 });
+    let n = 0, walls = 0; while (!r.done && r.t < 400 && n++ < 120 * 420) { Race.step(r, bot(r)); }
+    ok(c.name + ' (' + prof + '): a binary-key bot finishes in ' + (r.player.finishTime || 0).toFixed(0) + ' s, ' + r.player.recoveries + ' resets', r.player.finished, [r.t, r.player.recoveries]);
+  }
+}
+
 
 section('Drift scoring');
 {
